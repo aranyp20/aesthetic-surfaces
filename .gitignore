@@ -1,0 +1,13 @@
+**/build/
+*.obj
+**/.cache/
+**/compile_commands.json
+**/mQtUI.pro.user 
+
+**/lib/
+
+**/#*
+
+**/.DS_Store
+
+*~

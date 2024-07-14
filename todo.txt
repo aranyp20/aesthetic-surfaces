@@ -1,0 +1,15 @@
+TODO:
+
+
+
+-fix yaw-pitch-roll
+-offset edges to smaller z during rendering
+-efficient face split
+
+BUGS:
+
+-curvature gives NaNs (check)
+
+
+
+SOLVED:
