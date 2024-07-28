@@ -32,6 +32,7 @@ namespace metrics {
     {
       double absmean_curvature_error;
       double max_curvature_error;
+      int max_curvarure_error_vert_idx;
     };
     using SessionStatistic = std::vector<DataFrameStatistic>;
 

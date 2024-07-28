@@ -66,19 +66,22 @@ namespace metrics {
     size_t vert_count = 0;
     double absmean_error = 0;
     double max_abs_error = 0;
+    int max_error_vert_idx = 0; 
     
     for(const auto& vert_data : data_frame) {
       const auto vert_abs_error = std::fabs(vert_data.real_curvature - vert_data.target_curvature);
       vert_count++;
       absmean_error += vert_abs_error;
       max_abs_error = std::max(max_abs_error, vert_abs_error);
+      max_error_vert_idx = vert_data.vh_idx;
     }
     absmean_error /= vert_count;
     
     DataFrameStatistic retval;
     retval.absmean_curvature_error = absmean_error;
     retval.max_curvature_error = max_abs_error;
-
+    retval.max_curvarure_error_vert_idx = max_error_vert_idx;
+    
     return retval;
   }
 
@@ -89,6 +92,7 @@ namespace metrics {
       const auto dfs = analizedataFrame(session_data[iteration]);
       fw << "Absmean error: " << dfs.absmean_curvature_error << "\n";
       fw << "Max error: " << dfs.max_curvature_error << "\n";
+      fw << "Worst vertex: " << dfs.max_curvarure_error_vert_idx << "\n";
       fw << "----------------" << std::endl;
     }
   }

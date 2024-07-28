@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 #include "curvaturebased.h"
+#include "subdivider.h"
 
 
 namespace core {
@@ -49,111 +50,14 @@ namespace core {
     }
    
 
-    common::MyMesh::EdgeHandle findEdgeConnectingVertices(common::MyMesh& mesh, common::MyMesh::VertexHandle v1, common::MyMesh::VertexHandle v2) {
-      for (common::MyMesh::ConstEdgeIter e_it = mesh.edges_begin(); e_it != mesh.edges_end(); ++e_it) {
-        common::MyMesh::HalfedgeHandle heh0 = mesh.halfedge_handle(*e_it, 0);
-        common::MyMesh::HalfedgeHandle heh1 = mesh.halfedge_handle(*e_it, 1);
-        common::MyMesh::VertexHandle v0 = mesh.to_vertex_handle(heh0);
-        common::MyMesh::VertexHandle v3 = mesh.to_vertex_handle(heh1);
-        if ((v1 == v0 && v2 == v3) || (v1 == v3 && v2 == v0)) {
-	  // Found the edge connecting the two vertices
-	  return *e_it;
-        }
-      }
-    
-      // If no such edge found, return an invalid handle
-      return common::MyMesh::EdgeHandle();
-    } 
+ 
   } //namespace
 
-  
-    // Vertexhandle not present as child in this map must be original vertex
-    //TODO refactor
-  void DiscreteFairer::subdivide(common::MyMesh& mesh, ChildrenParents& child_parent_map) const
-    {
-  
-      std::vector<common::MyMesh::EdgeHandle> original_edges;
-      for (common::MyMesh::EdgeIter e_it = mesh.edges_begin(); e_it != mesh.edges_end(); ++e_it) {
-        original_edges.push_back(*e_it);
-      }
-
-      std::vector<common::MyMesh::VertexHandle> new_vertices;
-      std::vector<common::MyMesh::EdgeHandle> flippable_edges;
-
-      for(auto& original_edge_h : original_edges) {
-	  auto heh1 = mesh.halfedge_handle(original_edge_h, 0);
-	  auto heh2 = mesh.halfedge_handle(original_edge_h, 1);
-
-
-	  auto face1 = mesh.face_handle(heh1);
-	  auto face2 = mesh.face_handle(heh2);
-
-	
-
-	  auto v1 = heh1.is_valid() ? mesh.from_vertex_handle(heh1) : mesh.from_vertex_handle(heh2);
-	  auto v2 = heh1.is_valid() ? mesh.to_vertex_handle(heh1) : mesh.to_vertex_handle(heh2);
-
-	  common::MyMesh::VertexHandle opposite_vertex1;
-	  common::MyMesh::VertexHandle opposite_vertex2;
-
-
-	  if (face1.is_valid()) {
-            for (common::MyMesh::FaceVertexIter fv_it = mesh.fv_iter(face1); fv_it.is_valid(); ++fv_it) {
-	      common::MyMesh::VertexHandle v_face = *fv_it;
-
-	      if (v_face != v1 && v_face != v2) {
-		opposite_vertex1 = v_face;
-		break;
-	      }
-            }
-	  }
-
-	  if (face2.is_valid()) {
-            for (common::MyMesh::FaceVertexIter fv_it = mesh.fv_iter(face2); fv_it.is_valid(); ++fv_it) {
-	      common::MyMesh::VertexHandle v_face = *fv_it;
-
-	      if (v_face != v1 && v_face != v2) {
-		opposite_vertex2 = v_face;
-		break;
-	      }
-            }
-	  }
-
-
-	  auto new_vertex = mesh.split(original_edge_h, mesh.calc_edge_midpoint(original_edge_h));
-
-	  new_vertices.push_back(new_vertex);
-
-	  child_parent_map.insert({new_vertex, {v1, v2}});
-	
-
-	  if(face1.is_valid()){
-            if(std::find(new_vertices.begin(), new_vertices.end(), opposite_vertex1) == new_vertices.end()){
-	      flippable_edges.push_back(findEdgeConnectingVertices(mesh, new_vertex, opposite_vertex1));     
-
-            }
-	  }
-
-	  if(face2.is_valid()){
-            if(std::find(new_vertices.begin(), new_vertices.end(), opposite_vertex2) == new_vertices.end()){
-	      flippable_edges.push_back(findEdgeConnectingVertices(mesh, new_vertex, opposite_vertex2));     
-
-            }
-	  }
-      }
-
-      for (auto& flippable_edge : flippable_edges) {
-
-
-	mesh.flip(flippable_edge);
-
-      }
-    }
   
   void DiscreteFairer::getEffectorsHelper(const common::MyMesh::VertexHandle& to,
 			    std::set<common::MyMesh::VertexHandle>& visited_vertices,
 			    std::set<common::MyMesh::VertexHandle>& effectors,
-			    const ChildrenParents& child_parents_map) const
+					  const Subdivider::ChildrenParents& child_parents_map) const
     {
       if(child_parents_map.count(to) == 0) {
 	// Original vertex
@@ -172,7 +76,7 @@ namespace core {
       }    
     }
 
-  std::set<common::MyMesh::VertexHandle> DiscreteFairer::getEffectors(const common::MyMesh::VertexHandle& to, const ChildrenParents& child_parents_map) const
+  std::set<common::MyMesh::VertexHandle> DiscreteFairer::getEffectors(const common::MyMesh::VertexHandle& to, const Subdivider::ChildrenParents& child_parents_map) const
     {
       std::set<common::MyMesh::VertexHandle> result;
       std::set<common::MyMesh::VertexHandle> tmp_visited_vertices;
@@ -183,7 +87,7 @@ namespace core {
       return result;
     }
 
-  std::vector<std::pair<common::MyMesh::VertexHandle, double>> DiscreteFairer::getWeighedEffectors(const common::MyMesh::VertexHandle& to, const ChildrenParents& child_parents_map, const common::MyMesh& mesh) const
+  std::vector<std::pair<common::MyMesh::VertexHandle, double>> DiscreteFairer::getWeighedEffectors(const common::MyMesh::VertexHandle& to, const Subdivider::ChildrenParents& child_parents_map, const common::MyMesh& mesh) const
     {
       std::vector<std::pair<common::MyMesh::VertexHandle, double>> retval;
       const auto effectors = getEffectors(to, child_parents_map);
@@ -273,7 +177,7 @@ namespace core {
   
     }
 
-  std::map<common::MyMesh::VertexHandle, DiscreteFairer::ExtendedVertexStaticInfo> DiscreteFairer::generateExtendedVertexSaticInfos(common::MyMesh& mesh, const ChildrenParents& child_parents_map) const
+  std::map<common::MyMesh::VertexHandle, DiscreteFairer::ExtendedVertexStaticInfo> DiscreteFairer::generateExtendedVertexSaticInfos(common::MyMesh& mesh, const Subdivider::ChildrenParents& child_parents_map) const
     {
       std::map<common::MyMesh::VertexHandle, DiscreteFairer::ExtendedVertexStaticInfo> retval;
 
@@ -297,11 +201,9 @@ namespace core {
         
   void DiscreteFairer::triangleExecuteDemo(common::MyMesh& mesh)
     {
-      ChildrenParents cp;
-      subdivide(mesh, cp);
-      subdivide(mesh, cp);
-      subdivide(mesh, cp);
-      subdivide(mesh, cp);
+      
+      Subdivider subdivider;
+      Subdivider::ChildrenParents cp = subdivider.execute(mesh, 4);
       
       OpenMesh::VPropHandleT<double> demo_color;
       mesh.add_property(demo_color, "demo_color");
@@ -393,14 +295,11 @@ namespace core {
     if (mesh.n_vertices() == 3) {
       return triangleExecuteDemo(mesh);
     }
+    std::cout<<mesh.new_face()<<std::endl;
 
-    
-    ChildrenParents child_parents_map;
+    Subdivider subdivider;
+    Subdivider::ChildrenParents child_parents_map = subdivider.execute(mesh, iteration_count);
   
-    // Subdivide the base mesh
-    for(size_t i = 0; i < face_split_count; i++) {
-      subdivide(mesh, child_parents_map);
-    }
 
     extended_vertex_static_infos = generateExtendedVertexSaticInfos(mesh, child_parents_map);
     //std::cout<<"DiscreteFairer: ExtendedVertexStaticInfos are generated."<<std::endl;

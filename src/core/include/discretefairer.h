@@ -1,6 +1,7 @@
 #pragma once
 
 #include "curvaturecalculator.h"
+#include "subdivider.h"
 
 
 namespace core {
@@ -12,7 +13,6 @@ class DiscreteFairer
 
   
 public:
-  typedef std::map<common::MyMesh::VertexHandle, std::array<common::MyMesh::VertexHandle,2>> ChildrenParents;
 
 
 
@@ -23,25 +23,24 @@ public:
     std::vector<std::pair<common::MyMesh::VertexHandle, double>> weighed_effectors;
   };
 
-  void subdivide(common::MyMesh& mesh, ChildrenParents& child_parent_map) const;
   double calcTargetCurvature(const std::vector<std::pair<common::MyMesh::VertexHandle, double>>& weighed_effectors) const;
 
   void triangleExecuteDemo(common::MyMesh& mesh);
 
-  std::map<common::MyMesh::VertexHandle, DiscreteFairer::ExtendedVertexStaticInfo> generateExtendedVertexSaticInfos(common::MyMesh& mesh, const ChildrenParents& child_parents_map) const;
+  std::map<common::MyMesh::VertexHandle, DiscreteFairer::ExtendedVertexStaticInfo> generateExtendedVertexSaticInfos(common::MyMesh& mesh, const Subdivider::ChildrenParents& child_parents_map) const;
 
     void getEffectorsHelper(const common::MyMesh::VertexHandle& to,
 			    std::set<common::MyMesh::VertexHandle>& visited_vertices,
 			    std::set<common::MyMesh::VertexHandle>& effectors,
-			    const ChildrenParents& child_parents_map) const;
+			    const Subdivider::ChildrenParents& child_parents_map) const;
 
   
-  std::set<common::MyMesh::VertexHandle> getEffectors(const common::MyMesh::VertexHandle& to, const ChildrenParents& child_parents_map) const;
+  std::set<common::MyMesh::VertexHandle> getEffectors(const common::MyMesh::VertexHandle& to, const Subdivider::ChildrenParents& child_parents_map) const;
 
-      std::vector<std::pair<common::MyMesh::VertexHandle, double>> getWeighedEffectors(const common::MyMesh::VertexHandle& to, const ChildrenParents& child_parents_map,const common::MyMesh& mesh) const;
+      std::vector<std::pair<common::MyMesh::VertexHandle, double>> getWeighedEffectors(const common::MyMesh::VertexHandle& to, const Subdivider::ChildrenParents& child_parents_map,const common::MyMesh& mesh) const;
   
 
-  Eigen::Vector3d iterateVertex(common::MyMesh& mesh, common::MyMesh::VertexHandle& iteratable, const DiscreteFairer::ExtendedVertexStaticInfo& extended_vertex_static_info) const;
+  Eigen::Vector3d iterateVertex(common::MyMesh&, common::MyMesh::VertexHandle& iteratable, const DiscreteFairer::ExtendedVertexStaticInfo& extended_vertex_static_info) const;
 
 //TODO replace
 static Eigen::Vector3d Q(const std::array<Eigen::Vector3d, 6>& p,
@@ -57,7 +56,7 @@ public:
 
 void execute(common::MyMesh& mesh, size_t face_split_count, size_t iteration_count);
 
-  const ChildrenParents& getChildParentsMap() const;
+  const Subdivider::ChildrenParents& getChildParentsMap() const;
   
 
   std::map<common::MyMesh::VertexHandle, DiscreteFairer::ExtendedVertexStaticInfo> extended_vertex_static_infos;

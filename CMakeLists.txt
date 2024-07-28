@@ -57,6 +57,7 @@ src/framework/src/objectloader.cpp
 src/common/include/organize.hpp
 src/core/src/discretefairer.cpp
 src/metrics/curvaturebased.cpp
+src/core/src/subdivider.cpp
 dependencies/lsq-plane.cc
 )
 
