@@ -267,8 +267,8 @@ void Canvas::paintGL()
         q_m(i, j) = static_cast<float>(m(i, j));
       }
     }
-    setCurvaturToHueAttributes(*printable_mesh, 1.0);
-    std::vector<qGlVertex> pp = printableMeshToTriangles();
+    //setCurvaturToHueAttributes(*printable_mesh, 1.0);
+    //std::vector<qGlVertex> pp = printableMeshToTriangles();
 /*
     sp->bind();
     sp->setUniformValue("V", q_v);
@@ -327,7 +327,7 @@ void Canvas::paintGL()
       }
       glEnd();
     }
-
+    /*
     glBegin(GL_TRIANGLES);
     for(const auto& side : pp) {
       Eigen::Vector4d c_pos = p*v*m *  Eigen::Vector4d(side.position[0], side.position[1], side.position[2], 1.0);
@@ -336,7 +336,7 @@ void Canvas::paintGL()
       glVertex3f(c_pos[0], c_pos[1], c_pos[2]);
     }
     glEnd();
-
+    */
 }
 
 

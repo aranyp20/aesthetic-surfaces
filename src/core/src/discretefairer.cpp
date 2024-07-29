@@ -295,11 +295,9 @@ namespace core {
     if (mesh.n_vertices() == 3) {
       return triangleExecuteDemo(mesh);
     }
-    std::cout<<mesh.new_face()<<std::endl;
 
     Subdivider subdivider;
-    Subdivider::ChildrenParents child_parents_map = subdivider.execute(mesh, iteration_count);
-  
+    Subdivider::ChildrenParents child_parents_map = subdivider.execute(mesh, face_split_count);
 
     extended_vertex_static_infos = generateExtendedVertexSaticInfos(mesh, child_parents_map);
     //std::cout<<"DiscreteFairer: ExtendedVertexStaticInfos are generated."<<std::endl;
@@ -320,7 +318,6 @@ namespace core {
 	  //std::cout<<"Curvature: "<< curvature<<std::endl;
 	}
       }
-
       cb.postIteration();
 
       
@@ -356,11 +353,7 @@ namespace core {
 
     }
     cb.endSession();
-
-    OpenMesh::IO::write_mesh(mesh, "result.obj");
-
-
-    
+    //OpenMesh::IO::write_mesh(mesh, "result.obj");
 
 
 
