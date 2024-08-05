@@ -10,14 +10,13 @@ namespace core {
     common::MyMesh::EdgeHandle findEdgeConnectingVertices(common::MyMesh& mesh, common::MyMesh::VertexHandle v1, common::MyMesh::VertexHandle v2) const;
 
 
+    void execute(common::MyMesh& mesh, ChildrenParents& children_parents_map) const;
     
   public:
-    typedef std::map<common::MyMesh::VertexHandle, std::array<common::MyMesh::VertexHandle,2>> ChildrenParents;
 
-    ChildrenParents execute(common::MyMesh& mesh, size_t iteration_count = 1) const;
+    void execute(common::MyMesh& mesh, size_t iteration_count = 1) const;
     
   private:
-    void execute(common::MyMesh& mesh, ChildrenParents& children_parents_map) const;
 
     void processQuadFace(common::MyMesh::FaceHandle& face, common::MyMesh& mesh, ChildrenParents& children_parents_map, const std::map<common::MyMesh::EdgeHandle, common::MyMesh::VertexHandle>& halfpoint_map) const;
 

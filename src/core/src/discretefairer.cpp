@@ -16,6 +16,7 @@
 #include <vector>
 #include "curvaturebased.h"
 #include "subdivider.h"
+#include "settings.h"
 
 
 namespace core {
@@ -57,7 +58,7 @@ namespace core {
   void DiscreteFairer::getEffectorsHelper(const common::MyMesh::VertexHandle& to,
 			    std::set<common::MyMesh::VertexHandle>& visited_vertices,
 			    std::set<common::MyMesh::VertexHandle>& effectors,
-					  const Subdivider::ChildrenParents& child_parents_map) const
+					  const ChildrenParents& child_parents_map) const
     {
       if(child_parents_map.count(to) == 0) {
 	// Original vertex
@@ -76,7 +77,7 @@ namespace core {
       }    
     }
 
-  std::set<common::MyMesh::VertexHandle> DiscreteFairer::getEffectors(const common::MyMesh::VertexHandle& to, const Subdivider::ChildrenParents& child_parents_map) const
+  std::set<common::MyMesh::VertexHandle> DiscreteFairer::getEffectors(const common::MyMesh::VertexHandle& to, const ChildrenParents& child_parents_map) const
     {
       std::set<common::MyMesh::VertexHandle> result;
       std::set<common::MyMesh::VertexHandle> tmp_visited_vertices;
@@ -87,7 +88,7 @@ namespace core {
       return result;
     }
 
-  std::vector<std::pair<common::MyMesh::VertexHandle, double>> DiscreteFairer::getWeighedEffectors(const common::MyMesh::VertexHandle& to, const Subdivider::ChildrenParents& child_parents_map, const common::MyMesh& mesh) const
+  std::vector<std::pair<common::MyMesh::VertexHandle, double>> DiscreteFairer::getWeighedEffectors(const common::MyMesh::VertexHandle& to, const ChildrenParents& child_parents_map, const common::MyMesh& mesh) const
     {
       std::vector<std::pair<common::MyMesh::VertexHandle, double>> retval;
       const auto effectors = getEffectors(to, child_parents_map);
@@ -177,7 +178,7 @@ namespace core {
   
     }
 
-  std::map<common::MyMesh::VertexHandle, DiscreteFairer::ExtendedVertexStaticInfo> DiscreteFairer::generateExtendedVertexSaticInfos(common::MyMesh& mesh, const Subdivider::ChildrenParents& child_parents_map) const
+  std::map<common::MyMesh::VertexHandle, DiscreteFairer::ExtendedVertexStaticInfo> DiscreteFairer::generateExtendedVertexSaticInfos(common::MyMesh& mesh, const ChildrenParents& child_parents_map) const
     {
       std::map<common::MyMesh::VertexHandle, DiscreteFairer::ExtendedVertexStaticInfo> retval;
 
@@ -203,12 +204,12 @@ namespace core {
     {
       
       Subdivider subdivider;
-      Subdivider::ChildrenParents cp = subdivider.execute(mesh, 4);
+      subdivider.execute(mesh, 4);
       
       OpenMesh::VPropHandleT<double> demo_color;
       mesh.add_property(demo_color, "demo_color");
 
-      const auto static_info = generateExtendedVertexSaticInfos(mesh, cp);
+      const auto static_info = generateExtendedVertexSaticInfos(mesh, mesh.children_parents_map);
 
       for(const auto& v : mesh.vertices()) {
 	switch(v.idx()) {
@@ -251,55 +252,53 @@ namespace core {
   
   double DiscreteFairer::calcTargetCurvature(const std::vector<std::pair<common::MyMesh::VertexHandle, double>>& weighed_effectors) const
   {
-#define CT 1
-      
-    if (CT ==1){
-      double H = 0.0;
-      for(const auto& weighed_effector : weighed_effectors) {
-	H += vertex_curvature_map.at(weighed_effector.first) * weighed_effector.second;
-      }
-      return H;
-    }
-    //////////////
-    if(CT ==2){
-      double H = 0.0;
-      double bern_sum = 0.0;
-      for(const auto& weighed_effector : weighed_effectors) {
-	bern_sum += bernstein_interpol(weighed_effector.second);
-      }
-      //bern_sum = 3.0/2.0; TODO
-      //std::cout<<bern_sum<<std::endl;
-      for(const auto& weighed_effector : weighed_effectors) {
-	H += vertex_curvature_map.at(weighed_effector.first) * (bernstein_interpol(weighed_effector.second)/bern_sum);
-      }
-      return H;
-    }
 
-    if(CT ==3){
-      double H = 0.0;
-      const auto alpha = -0.5;
-      for(const auto& weighed_effector : weighed_effectors) {
-	H += std::pow(vertex_curvature_map.at(weighed_effector.first),-alpha) * weighed_effector.second;
+    switch(common::settings::selected_alg) {      
+    case common::settings::Algorithm::BASIC: {
+	double H = 0.0;
+	for(const auto& weighed_effector : weighed_effectors) {
+	  H += vertex_curvature_map.at(weighed_effector.first) * weighed_effector.second;
+	}
+	return H;
       }
+      //////////////
+    case common::settings::Algorithm::BEZIER: {
+	double H = 0.0;
+	double bern_sum = 0.0;
+	for(const auto& weighed_effector : weighed_effectors) {
+	  bern_sum += bernstein_interpol(weighed_effector.second);
+	}
+	//bern_sum = 3.0/2.0; TODO
+	//std::cout<<bern_sum<<std::endl;
+	for(const auto& weighed_effector : weighed_effectors) {
+	  H += vertex_curvature_map.at(weighed_effector.first) * (bernstein_interpol(weighed_effector.second)/bern_sum);
+	}
+	return H;
+      }
+
+    case common::settings::Algorithm::LOG_AESTHETIC: {
+	double H = 0.0;
+	const auto alpha = common::settings::log_aesthetic_alpha;
+	for(const auto& weighed_effector : weighed_effectors) {
+	  H += std::pow(vertex_curvature_map.at(weighed_effector.first),-alpha) * weighed_effector.second;
+	}
 	
-      //std::cout<<std::pow(H, -1.0 / alpha)<<std::endl;
+	//std::cout<<std::pow(H, -1.0 / alpha)<<std::endl;
 	
-      return std::pow(H, -1.0 / alpha);
-      return H;
+	return std::pow(H, -1.0 / alpha);
+	return H;
+      }
     }
       
   }
 
-  void DiscreteFairer::execute(common::MyMesh& mesh, size_t face_split_count, size_t iteration_count)
+  void DiscreteFairer::execute(common::MyMesh& mesh, size_t iteration_count)
   {
     if (mesh.n_vertices() == 3) {
       return triangleExecuteDemo(mesh);
     }
 
-    Subdivider subdivider;
-    Subdivider::ChildrenParents child_parents_map = subdivider.execute(mesh, face_split_count);
-
-    extended_vertex_static_infos = generateExtendedVertexSaticInfos(mesh, child_parents_map);
+    extended_vertex_static_infos = generateExtendedVertexSaticInfos(mesh, mesh.children_parents_map);
     //std::cout<<"DiscreteFairer: ExtendedVertexStaticInfos are generated."<<std::endl;
 
     metrics::CurvatureBased cb(mesh, *this);

@@ -69,8 +69,9 @@ namespace core {
   //TODO refactor
   void Subdivider::execute(common::MyMesh& mesh, ChildrenParents& children_parents_map) const
   {
+    /*
     using namespace common;
-
+    
     std::vector<common::MyMesh::EdgeHandle> original_edges;
     for (common::MyMesh::EdgeIter e_it = mesh.edges_begin(); e_it != mesh.edges_end(); ++e_it) {
       original_edges.push_back(*e_it);
@@ -124,6 +125,7 @@ namespace core {
     std::cout << mesh.n_vertices() << std::endl;
     
     return;
+    
     //////////////////////////////////////////
     
     for (auto& original_edge : original_edges) {
@@ -200,10 +202,10 @@ namespace core {
       std::cout << mesh.n_edges() << std::endl;
       std::cout << mesh.n_vertices() << std::endl;
     }
-
+    */
     /////////////////////////////////
 
-    /*
+    
     std::vector<common::MyMesh::EdgeHandle> original_edges;
     for (common::MyMesh::EdgeIter e_it = mesh.edges_begin(); e_it != mesh.edges_end(); ++e_it) {
       original_edges.push_back(*e_it);
@@ -280,17 +282,15 @@ namespace core {
       mesh.flip(flippable_edge);
 
     }
-    */
+    
   }
 
 
-  Subdivider::ChildrenParents Subdivider::execute(common::MyMesh& mesh, const size_t iteration_count) const
+  void Subdivider::execute(common::MyMesh& mesh, const size_t iteration_count) const
   {
-    ChildrenParents retval;
     for (size_t i = 0; i < iteration_count; i++) {
-      execute(mesh, retval);
+      execute(mesh, mesh.children_parents_map);
     }
-    return retval;
   }
 
 
