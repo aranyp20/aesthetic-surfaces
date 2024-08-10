@@ -16,8 +16,6 @@ struct MyTraits : public OpenMesh::DefaultTraits
 };
   typedef OpenMesh::PolyMesh_ArrayKernelT<MyTraits> BaseMesh;
 
-  
-  
 
   //typedef Openmesh::Polymesh_ArrayKernelT<MyTraits> BaseMesh;
 
@@ -30,3 +28,4 @@ struct MyTraits : public OpenMesh::DefaultTraits
 }
 
         typedef std::map<common::MyMesh::VertexHandle, std::array<common::MyMesh::VertexHandle,2>> ChildrenParents;
+

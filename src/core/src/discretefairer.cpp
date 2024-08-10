@@ -19,6 +19,7 @@
 #include "subdivider.h"
 #include "settings.h"
 #include "type_converter.h"
+#include "mymath.h"
 
 
 namespace core {
@@ -58,10 +59,6 @@ namespace core {
 						 const Eigen::Vector3d& P2, 
 						 const Eigen::Vector3d& P3, 
 						 const Eigen::Vector3d& P4) {
-      //Eigen::Vector3d v0 = P - P1;
-      //Eigen::Vector3d v1 = P2 - P1;
-      //Eigen::Vector3d v2 = P3 - P1;
-      //Eigen::Vector3d v3 = P4 - P1;
 
       Eigen::Vector4d v1(1, P1[0], P1[1], P1[2]);
       Eigen::Vector4d v2(1, P2[0], P2[1], P2[2]);
@@ -84,10 +81,33 @@ namespace core {
         throw std::runtime_error("Barycentric matrix inversion failed...");
       }
 
-      std::cout<<"pees: "<<P<<", "<<P1<<", "<<P2<<", "<<P3<<", "<<P4<<std::endl;
-      //const auto lambda1 = 1.0 - lambdas.sum();
 
       return {lambdas[0], lambdas[1], lambdas[2], lambdas[3]};
+    }
+
+    std::array<double, 4> barycentricCoordinatesImproved(const Eigen::Vector3d& P, 
+							 const Eigen::Vector3d& P1, 
+							 const Eigen::Vector3d& P2, 
+							 const Eigen::Vector3d& P3, 
+							 const Eigen::Vector3d& P4) {
+      
+      const auto bar_of_vertex = [P](const Eigen::Vector3d& pi, const Eigen::Vector3d& pi0, const Eigen::Vector3d& pi2) {
+
+	return common::math::heron(pi, pi0, pi2) / (common::math::heron(pi, pi0, P) * common::math::heron(pi, pi2, P));
+	
+      };
+
+      auto l1 = bar_of_vertex(P1, P2, P4);
+      auto l2 = bar_of_vertex(P2, P1, P3);
+      auto l3 = bar_of_vertex(P3, P2, P4);
+      auto l4 = bar_of_vertex(P4, P3, P1);
+      const auto normalizer = l1 + l2 + l3 + l4;
+      l1 /= normalizer;
+      l2 /= normalizer;
+      l3 /= normalizer;
+      l4 /= normalizer;
+      
+      return {l1, l2, l3, l4};
     }
 
  
@@ -182,7 +202,7 @@ namespace core {
       }
       else if (effectors.size() == 4) { // todo sima else es a generalized mehet n-re
 
-	const auto barys = barycentricCoordinates(common::converter::meshPointToEigen(mesh.point(to)),
+	const auto barys = barycentricCoordinatesImproved(common::converter::meshPointToEigen(mesh.point(to)),
 			       common::converter::meshPointToEigen(mesh.point(t_effectors[0])),
 			       common::converter::meshPointToEigen(mesh.point(t_effectors[1])),
 			       common::converter::meshPointToEigen(mesh.point(t_effectors[2])),
@@ -192,9 +212,7 @@ namespace core {
 	retval.push_back({t_effectors[1], barys[1]});
 	retval.push_back({t_effectors[2], barys[2]});
 	retval.push_back({t_effectors[3], barys[3]});
-
-	std::cout<<barys[0]<<" "<<barys[1]<<" " << barys[2]<<" "<<barys[3]<<std::endl;
-
+	
       }
       else {
 	throw std::runtime_error("cant get weighed effectors...: " + std::to_string(effectors.size()));
@@ -314,7 +332,7 @@ namespace core {
   {
       
       Subdivider subdivider;
-      subdivider.execute(mesh, 1);
+      subdivider.execute(mesh, 4);
       
       OpenMesh::VPropHandleT<double> demo_color;
       mesh.add_property(demo_color, "demo_color");

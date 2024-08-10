@@ -246,7 +246,9 @@ namespace core
     double CurvatureCalculator::getGaussianCurvature() const
     {
         const auto& fe = fundamental_elements;
-        return (fe.N * fe.E - 2 * fe.M * fe.F + fe.L * fe.G) / (fe.E * fe.G - fe.F * fe.F);
+	
+        //return (fe.N * fe.E - 2 * fe.M * fe.F + fe.L * fe.G) / (fe.E * fe.G - fe.F * fe.F);
+	return (fe.L * fe.N - fe.M * fe.M) / (fe.E * fe.G - fe.F * fe.F);
     }
 
     double CurvatureCalculator::getMaxPrincipleCurvature() const
