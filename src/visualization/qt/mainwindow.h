@@ -55,15 +55,16 @@ public slots:
   void rollPlus();
   void rollMinus();
   void setHighlightEdges(int status);
+  void loadModel();
   void changeLoadedModel(int index);
   void resetModel();
   void changeAlgorithm(int index);
   void changeMeshSlot(bool index);
-
   void performMethod();
   void performSubdivision();
   void setDFSubdivisionCount(int n);
   void setDFIterationCount(int n);
+  void setLogAestheticAlpha(double);
 
 };
 #endif // MAINWINDOW_H

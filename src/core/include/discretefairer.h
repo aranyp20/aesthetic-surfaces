@@ -1,6 +1,7 @@
 #pragma once
 
 #include "curvaturecalculator.h"
+#include "mesh.h"
 #include "subdivider.h"
 
 
@@ -26,6 +27,7 @@ public:
   double calcTargetCurvature(const std::vector<std::pair<common::MyMesh::VertexHandle, double>>& weighed_effectors) const;
 
   void triangleExecuteDemo(common::MyMesh& mesh);
+  void pentaExecuteDemo(common::MyMesh& mesh);
 
   std::map<common::MyMesh::VertexHandle, DiscreteFairer::ExtendedVertexStaticInfo> generateExtendedVertexSaticInfos(common::MyMesh& mesh, const ChildrenParents& child_parents_map) const;
 
@@ -42,6 +44,10 @@ public:
 
   Eigen::Vector3d iterateVertex(common::MyMesh&, common::MyMesh::VertexHandle& iteratable, const DiscreteFairer::ExtendedVertexStaticInfo& extended_vertex_static_info) const;
 
+
+  void iterateVerticesAsync(common::MyMesh& mesh);
+  void iterateVerticesSync(common::MyMesh& mesh);
+  
 //TODO replace
 static Eigen::Vector3d Q(const std::array<Eigen::Vector3d, 6>& p,
 			 const Eigen::Vector3d& normal, double H, const CurvatureCalculator::FundamentalElements& fe,
@@ -49,6 +55,11 @@ static Eigen::Vector3d Q(const std::array<Eigen::Vector3d, 6>& p,
 
 
   static Eigen::Vector3d Q2(const std::array<Eigen::Vector3d, 6>& p,
+			 const Eigen::Vector3d& normal, double H, const CurvatureCalculator::FundamentalElements& fe,
+			    const Eigen::Vector3d& Q, const Eigen::Matrix<double, 5, 6>& M);
+
+
+   static Eigen::Vector3d Q_Gaussian(const std::array<Eigen::Vector3d, 6>& p,
 			 const Eigen::Vector3d& normal, double H, const CurvatureCalculator::FundamentalElements& fe,
 			    const Eigen::Vector3d& Q, const Eigen::Matrix<double, 5, 6>& M);
 

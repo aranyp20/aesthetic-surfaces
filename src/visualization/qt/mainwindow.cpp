@@ -4,11 +4,13 @@
 #include "ui_mainwindow.h"
 
 #include "canvas.h"
+#include <QtCore/qglobal.h>
 #include <QtCore/qobject.h>
 #include <QtCore/qstring.h>
 #include <QtCore/qvariant.h>
 #include <QtWidgets/qpushbutton.h>
 #include <QtWidgets/qradiobutton.h>
+#include <QtWidgets/qspinbox.h>
 #include <memory>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -29,6 +31,8 @@ MainWindow::MainWindow(QWidget *parent)
     QObject::connect(ui->executeButton, &QPushButton::pressed, this, &MainWindow::performMethod);
     QObject::connect(ui->subdivideButton, &QPushButton::pressed, this, &MainWindow::performSubdivision);
     QObject::connect(ui->resetModelButton, &QPushButton::pressed, this, &MainWindow::resetModel);
+    QObject::connect(ui->logAlphaSpinBox, qOverload<double>(&QDoubleSpinBox::valueChanged), this, &MainWindow::setLogAestheticAlpha);
+    QObject::connect(ui->loadModelPushButton, &QPushButton::pressed, this, &MainWindow::loadModel);
 
 
     ui->logAlphaSpinBox->setMinimum(-5);
@@ -41,6 +45,9 @@ MainWindow::MainWindow(QWidget *parent)
     size_t tmpi = 0;
     for (const auto& file_option : file_options) {
       ui->modelSelectionComboBox->addItem(QString::fromStdString(file_option), QVariant((int)tmpi++));
+      if (file_option == "./deformed_ico.obj") {
+	ui->modelSelectionComboBox->setCurrentIndex(tmpi-1);
+      }
     }
 
     ui->algSelectorComboBox->addItem(QString::fromStdString(common::settings::alg_name.at(common::settings::BASIC)), QVariant((int)common::settings::BASIC));
@@ -57,7 +64,11 @@ MainWindow::MainWindow(QWidget *parent)
 
 
     ui->radioButton->setChecked(true);
-
+    ui->subdivisionCountBox->setValue(1);
+    ui->iterationCountBox->setValue(1);
+    ui->highlightEdgesCheckBox->setChecked(true);
+    
+    loadModel();
 }
 
 MainWindow::~MainWindow()
@@ -110,9 +121,9 @@ void MainWindow::setHighlightEdges(int status)
 
 }
 
-void MainWindow::changeLoadedModel(int index)
+void MainWindow::loadModel()
 {
-  *m_mesh = object_loader.loadFromFile(index);
+  *m_mesh = object_loader.loadFromFile( ui->modelSelectionComboBox->currentIndex());
   *m_loaded_mesh = std::make_shared<common::MyMesh>(**m_mesh);
   ui->main_openGL_widget->setPrintable(*m_mesh);
   ui->main_openGL_widget->update();
@@ -167,6 +178,19 @@ void MainWindow::changeMeshSlot(bool index)
     m_loaded_mesh = &m_loaded_mesh_b;
   }
 
+  ui->main_openGL_widget->setPrintable(*m_mesh);
+  ui->main_openGL_widget->update();
+}
+
+void MainWindow::setLogAestheticAlpha(double v)
+{
+  common::settings::log_aesthetic_alpha = v;
+}
+
+void MainWindow::changeLoadedModel(int index)
+{
+  *m_mesh = object_loader.loadFromFile(index);
+  *m_loaded_mesh = std::make_shared<common::MyMesh>(**m_mesh);
   ui->main_openGL_widget->setPrintable(*m_mesh);
   ui->main_openGL_widget->update();
 }

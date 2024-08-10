@@ -9,9 +9,11 @@
 
 
 #include <iostream>
+#include <vector>
 
 #include "common_defines.h"
 #include "camera.h"
+#include "mesh.h"
 #include "objectloader.h"
 
 
@@ -78,6 +80,7 @@ private:
   double hue_divider = 1;
   double hue_offset = 0;
   void setCurvaturToHueAttributes(const common::MyMesh& mesh, double outlier = 0.95);
+  std::vector<qGlVertex> printableFaceToTriangles(const common::MyMesh::FaceHandle& fh) const;
   std::vector<qGlVertex> printableMeshToTriangles() const; //faces
   std::vector<qGlVertex> printableMeshToLines() const; //edges
 

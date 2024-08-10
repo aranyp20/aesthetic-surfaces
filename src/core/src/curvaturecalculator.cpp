@@ -238,6 +238,7 @@ namespace core
 
     double CurvatureCalculator::getMeanCurvature() const
     {
+      
         const auto& fe = fundamental_elements;
         return (fe.L * fe.G - fe.M * fe.F + fe.N * fe.E - fe.M * fe.F) / (2 * (fe.E * fe.G - fe.F * fe.F));
     }

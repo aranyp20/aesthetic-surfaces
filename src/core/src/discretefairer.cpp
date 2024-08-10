@@ -3,6 +3,7 @@
 #include <OpenMesh/Core/IO/MeshIO.hh>
 #include "common_defines.h"
 #include "curvaturecalculator.h"
+#include "mesh.h"
 #include "organize.hpp"
 #include <algorithm>
 #include <cstddef>
@@ -17,6 +18,7 @@
 #include "curvaturebased.h"
 #include "subdivider.h"
 #include "settings.h"
+#include "type_converter.h"
 
 
 namespace core {
@@ -49,10 +51,50 @@ namespace core {
       }
       return 1.0 - res;
     }
-   
+
+
+    std::array<double, 4> barycentricCoordinates(const Eigen::Vector3d& P, 
+						 const Eigen::Vector3d& P1, 
+						 const Eigen::Vector3d& P2, 
+						 const Eigen::Vector3d& P3, 
+						 const Eigen::Vector3d& P4) {
+      //Eigen::Vector3d v0 = P - P1;
+      //Eigen::Vector3d v1 = P2 - P1;
+      //Eigen::Vector3d v2 = P3 - P1;
+      //Eigen::Vector3d v3 = P4 - P1;
+
+      Eigen::Vector4d v1(1, P1[0], P1[1], P1[2]);
+      Eigen::Vector4d v2(1, P2[0], P2[1], P2[2]);
+      Eigen::Vector4d v3(1, P3[0], P3[1], P3[2]);
+      Eigen::Vector4d v4(1, P4[0], P4[1], P4[2]);
+      
+      Eigen::Matrix4d matrix;
+      matrix.col(0) = v1;
+      matrix.col(1) = v2;
+      matrix.col(2) = v3;
+      matrix.col(3) = v4;
+
+
+      Eigen::Vector4d v(1, P[0], P[1], P[2]);
+      
+      Eigen::Vector4d lambdas;
+      try {
+        lambdas = matrix.colPivHouseholderQr().solve(v);
+      } catch (const std::exception& e) {
+        throw std::runtime_error("Barycentric matrix inversion failed...");
+      }
+
+      std::cout<<"pees: "<<P<<", "<<P1<<", "<<P2<<", "<<P3<<", "<<P4<<std::endl;
+      //const auto lambda1 = 1.0 - lambdas.sum();
+
+      return {lambdas[0], lambdas[1], lambdas[2], lambdas[3]};
+    }
 
  
   } //namespace
+
+
+
 
   
   void DiscreteFairer::getEffectorsHelper(const common::MyMesh::VertexHandle& to,
@@ -70,6 +112,8 @@ namespace core {
     
       const auto& parents = child_parents_map.at(to);
 
+
+
       for(size_t i = 0; i < 2; i++){
 	if(std::find(visited_vertices.begin(), visited_vertices.end(), parents[i]) == visited_vertices.end()){
 	  getEffectorsHelper(parents[i], visited_vertices, effectors, child_parents_map);
@@ -84,7 +128,6 @@ namespace core {
 
       getEffectorsHelper(to, tmp_visited_vertices, result, child_parents_map);
 
-
       return result;
     }
 
@@ -93,11 +136,16 @@ namespace core {
       std::vector<std::pair<common::MyMesh::VertexHandle, double>> retval;
       const auto effectors = getEffectors(to, child_parents_map);
 
-      if(effectors.size() == 2) {
-	std::vector<common::MyMesh::VertexHandle> t_effectors;
+      	std::vector<common::MyMesh::VertexHandle> t_effectors;
 	for(const auto& a : effectors) {
 	  t_effectors.push_back(a); //TODO delete this
 	}
+
+	if(effectors.size() == 1) {
+	  return retval;
+	}
+	
+      if(effectors.size() == 2) {
 	const auto p0 = mesh.point(to);
 	const auto p1 = mesh.point(t_effectors[0]);
 	const auto p2 = mesh.point(t_effectors[1]);
@@ -110,10 +158,6 @@ namespace core {
 	retval.push_back({t_effectors[1], d1});
       }
       else if (effectors.size() == 3) {
-	std::vector<common::MyMesh::VertexHandle> t_effectors;
-	for(const auto& a : effectors) {
-	  t_effectors.push_back(a);
-	}
 	const auto p0 = mesh.point(to);
 	const auto p1 = mesh.point(t_effectors[0]);
 	const auto p2 = mesh.point(t_effectors[1]);
@@ -135,6 +179,25 @@ namespace core {
 	retval.push_back({t_effectors[1], v});
 	retval.push_back({t_effectors[2], w});
 
+      }
+      else if (effectors.size() == 4) { // todo sima else es a generalized mehet n-re
+
+	const auto barys = barycentricCoordinates(common::converter::meshPointToEigen(mesh.point(to)),
+			       common::converter::meshPointToEigen(mesh.point(t_effectors[0])),
+			       common::converter::meshPointToEigen(mesh.point(t_effectors[1])),
+			       common::converter::meshPointToEigen(mesh.point(t_effectors[2])),
+			       common::converter::meshPointToEigen(mesh.point(t_effectors[3])));
+
+	retval.push_back({t_effectors[0], barys[0]});
+	retval.push_back({t_effectors[1], barys[1]});
+	retval.push_back({t_effectors[2], barys[2]});
+	retval.push_back({t_effectors[3], barys[3]});
+
+	std::cout<<barys[0]<<" "<<barys[1]<<" " << barys[2]<<" "<<barys[3]<<std::endl;
+
+      }
+      else {
+	throw std::runtime_error("cant get weighed effectors...: " + std::to_string(effectors.size()));
       }
 
       return retval;
@@ -201,7 +264,7 @@ namespace core {
 
         
   void DiscreteFairer::triangleExecuteDemo(common::MyMesh& mesh)
-    {
+  {
       
       Subdivider subdivider;
       subdivider.execute(mesh, 4);
@@ -240,6 +303,67 @@ namespace core {
       for (auto vh : mesh.vertices()) {
 	if (!static_info.at(vh).is_original_vertex) {
 	  //std::cout<<calcTargetCurvature(static_info.at(vh).weighed_effectors)<<std::endl;
+	  mesh.property(demo_color, vh) = calcTargetCurvature(static_info.at(vh).weighed_effectors);
+	}
+      }
+
+      
+    }
+
+    void DiscreteFairer::pentaExecuteDemo(common::MyMesh& mesh)
+  {
+      
+      Subdivider subdivider;
+      subdivider.execute(mesh, 1);
+      
+      OpenMesh::VPropHandleT<double> demo_color;
+      mesh.add_property(demo_color, "demo_color");
+
+      const auto static_info = generateExtendedVertexSaticInfos(mesh, mesh.children_parents_map);
+
+      for(const auto& v : mesh.vertices()) {
+	switch(v.idx()) {
+	case 0:
+	  {
+	    vertex_curvature_map[v] = 0.5;
+	    mesh.property(demo_color, v) = 0.5;
+	    break;
+	  }
+	case 1:
+	  {
+	    vertex_curvature_map[v] = 1.0;
+	    mesh.property(demo_color, v) = 1.0;
+	    break;
+	  }
+	case 2:
+	  {
+	    vertex_curvature_map[v] = 2.0;
+	    mesh.property(demo_color, v) = 2.0;
+	    break;
+	  }
+	case 3:
+	  {
+	    vertex_curvature_map[v] = 4.0;
+	    mesh.property(demo_color, v) = 4.0;
+	    break;
+	  }
+	case 4:
+	  {
+	    vertex_curvature_map[v] = 5.0;
+	    mesh.property(demo_color, v) = 5.0;
+	    break;
+	  }
+	default:
+	  break;
+	}
+      }
+      
+	
+      for (auto vh : mesh.vertices()) {
+
+	
+	if (!static_info.at(vh).is_original_vertex) {
+	  
 	  mesh.property(demo_color, vh) = calcTargetCurvature(static_info.at(vh).weighed_effectors);
 	}
       }
@@ -292,17 +416,53 @@ namespace core {
       
   }
 
+  void DiscreteFairer::iterateVerticesAsync(common::MyMesh& mesh)
+  {
+    // Calculate the new position of each new vertex
+    std::vector<std::pair<common::MyMesh::VertexHandle, Eigen::Vector3d>> new_vertex_positions;
+    for(common::MyMesh::VertexIter v_it = mesh.vertices_begin(); v_it != mesh.vertices_end(); ++v_it){
+      auto vh = *v_it;
+      if (!extended_vertex_static_infos.at(vh).is_original_vertex) {
+	new_vertex_positions.emplace_back(vh, iterateVertex(mesh, vh, extended_vertex_static_infos.at(vh)));
+      }
+    }
+      
+    // Replace each vertex to its new position
+    for (auto& vertex_with_new_pos : new_vertex_positions) {
+      // TODO: conversion in common (new file for all of these)
+      const auto& new_pos_e = vertex_with_new_pos.second;
+      common::MyMesh::Point new_pos(new_pos_e[0], new_pos_e[1], new_pos_e[2]);
+	
+      mesh.point(vertex_with_new_pos.first) = new_pos;
+    }
+  }
+
+  void DiscreteFairer::iterateVerticesSync(common::MyMesh& mesh)
+  {
+    for(common::MyMesh::VertexIter v_it = mesh.vertices_begin(); v_it != mesh.vertices_end(); ++v_it){
+      auto vh = *v_it;
+      if (!extended_vertex_static_infos.at(vh).is_original_vertex) {
+	const auto new_pos_e =  iterateVertex(mesh, vh, extended_vertex_static_infos.at(vh));
+	common::MyMesh::Point new_pos(new_pos_e[0], new_pos_e[1], new_pos_e[2]);
+	mesh.point(vh) = new_pos;
+      }
+    }
+  }
+
   void DiscreteFairer::execute(common::MyMesh& mesh, size_t iteration_count)
   {
     if (mesh.n_vertices() == 3) {
       return triangleExecuteDemo(mesh);
     }
+    if (mesh.n_vertices() == 5) {
+      return pentaExecuteDemo(mesh);
+    }
 
-    extended_vertex_static_infos = generateExtendedVertexSaticInfos(mesh, mesh.children_parents_map);
+    extended_vertex_static_infos = generateExtendedVertexSaticInfos(mesh, mesh.children_parents_map); //todo ezt mindig ujra kell generalni?
     //std::cout<<"DiscreteFairer: ExtendedVertexStaticInfos are generated."<<std::endl;
 
-    metrics::CurvatureBased cb(mesh, *this);
-    cb.startSession();
+    //metrics::CurvatureBased cb(mesh, *this);
+    //cb.startSession();
 
     for(size_t i = 0; i < iteration_count ; i++){
       // Calculate the curvature for each vertex at the beginning of each iteration
@@ -317,29 +477,16 @@ namespace core {
 	  //std::cout<<"Curvature: "<< curvature<<std::endl;
 	}
       }
-      cb.postIteration();
+      //cb.postIteration();
 
       
-      // Calculate the new position of each new vertex
-      std::vector<std::pair<common::MyMesh::VertexHandle, Eigen::Vector3d>> new_vertex_positions;
-      for(common::MyMesh::VertexIter v_it = mesh.vertices_begin(); v_it != mesh.vertices_end(); ++v_it){
-	auto vh = *v_it;
-	if (!extended_vertex_static_infos.at(vh).is_original_vertex) {
-	  if(/*vh.idx()>=29 && vh.idx()<=3100*/ vh.idx()==0 || true){
-	    new_vertex_positions.emplace_back(vh, iterateVertex(mesh, vh, extended_vertex_static_infos.at(vh)));
-	  }
-	}
+      if (common::settings::sync) {
+	iterateVerticesSync(mesh);
       }
-      //continue;
-      size_t tmp_id = 0;
-      // Replace each vertex to its new position
-      for (auto& vertex_with_new_pos : new_vertex_positions) {
-	// TODO: conversion in common (new file for all of these)
-	const auto& new_pos_e = vertex_with_new_pos.second;
-	common::MyMesh::Point new_pos(new_pos_e[0], new_pos_e[1], new_pos_e[2]);
-	
-	  mesh.point(vertex_with_new_pos.first) = new_pos;
+      else {
+	iterateVerticesAsync(mesh);
       }
+      
 
       std::cout<<"-----Iter--------"<<std::endl;
       for(auto vh : mesh.vertices()){
@@ -351,7 +498,7 @@ namespace core {
       }
 
     }
-    cb.endSession();
+    //cb.endSession();
     //OpenMesh::IO::write_mesh(mesh, "result.obj");
 
 
@@ -404,6 +551,67 @@ namespace core {
 
   }
 
+
+
+
+    Eigen::Vector3d DiscreteFairer::Q_Gaussian(const std::array<Eigen::Vector3d, 6>& p,const Eigen::Vector3d& normal, double H,  const CurvatureCalculator::FundamentalElements& fe, const Eigen::Vector3d& Q, const Eigen::Matrix<double, 5 , 6>& M)
+  {
+
+     const auto p_k = common::average({p[0], p[1], p[2], p[3], p[4], p[5]});
+
+
+    const double row3sum = M.row(2).sum();
+    const double row4sum = M.row(3).sum();
+    const double row5sum = M.row(4).sum();
+
+
+    Eigen::RowVectorXd row3 = M.row(2);
+    double a3 = 0.0;
+    for(size_t i = 0; i< 6; i++) {
+      a3 += (row3(i) * p[i]).dot(normal);
+    }
+
+    Eigen::RowVectorXd row4 = M.row(3);
+    double a4 = 0.0;
+    for(size_t i = 0; i< 6; i++) {
+      a4 += (row4(i) * p[i]).dot(normal);
+    }
+
+    Eigen::RowVectorXd row5 = M.row(4);
+    double a5 = 0.0;
+    for(size_t i = 0; i< 6; i++) {
+      a5 += (row5(i) * p[i]).dot(normal);
+    }
+
+    
+    
+    const auto rat = fe.E * fe.G - fe.F * fe.F;
+    
+    const auto a = (row3sum * row5sum + row4sum * row4sum) / rat;
+    const auto b = (- a3 * row5sum - a5 * row3sum + 2 * row3sum * row5sum * p_k.dot(normal) + 2 * row4sum * row4sum * p_k.dot(normal)) / rat;
+    const auto c = (a3 * a5 - a3 * row5sum * p_k.dot(normal) - a5 * row3sum * p_k.dot(normal) + row3sum * row5sum * p_k.dot(normal) * p_k.dot(normal) - a4 * a4) / rat;
+
+
+    double t = 0;
+    
+    const auto determinant = b * b - 4 * a * c;
+    if (determinant < 0) {
+      std::cout<<"det<0"<<std::endl;
+    }
+    else if (determinant < 0.001) {
+      std::cout << "det~~0" << std::endl;
+      t = - b / (2 * a);
+    }
+    else {
+      std::cout << "det++" << std::endl;
+      const auto t1 = (- b + sqrt(determinant)) / (2 * a);
+      const auto t2 = (- b - sqrt(determinant)) / (2 * a);
+      t = std::max(t1,t2);
+    }
+
+    std::cout << "t: "<<t << std::endl;
+    return p_k + normal * t;
+  }
 
 
 

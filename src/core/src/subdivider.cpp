@@ -1,5 +1,6 @@
 #include "subdivider.h"
 #include "common_defines.h"
+#include "mesh.h"
 #include <stdexcept>
 #include <sys/types.h>
 
@@ -25,6 +26,7 @@ namespace core {
   }
 
 
+  common::MyMesh::VertexHandle deb1;
   
   void Subdivider::processQuadFace(common::MyMesh::FaceHandle& face, common::MyMesh& mesh, ChildrenParents& children_parents_map, const std::map<common::MyMesh::EdgeHandle, common::MyMesh::VertexHandle>& halfpoint_map) const
   {
@@ -37,7 +39,7 @@ namespace core {
     common::MyMesh::Point middle_point = (mesh.point(border_vertices[1]) + mesh.point(border_vertices[5])) / 2.0;
     common::MyMesh::VertexHandle middle_vertex = mesh.add_vertex(middle_point);
 
-    children_parents_map[middle_vertex] = {border_vertices[1], border_vertices[5]};
+    deb1=middle_vertex;
 
     mesh.delete_face(face, false);
 
@@ -45,6 +47,9 @@ namespace core {
     mesh.add_face({border_vertices[1], border_vertices[2], border_vertices[3], middle_vertex});
     mesh.add_face({border_vertices[3], border_vertices[4], border_vertices[5], middle_vertex});
     mesh.add_face({border_vertices[5], border_vertices[6], border_vertices[7], middle_vertex});
+
+
+    mesh.children_parents_map.insert({middle_vertex, {border_vertices[1], border_vertices[5]}});
   }
 
 
@@ -62,6 +67,9 @@ namespace core {
     mesh.add_face({border_vertices[1], border_vertices[2], border_vertices[3]});
     mesh.add_face({border_vertices[3], border_vertices[4], border_vertices[5]});
     mesh.add_face({border_vertices[1], border_vertices[3], border_vertices[5]});
+
+
+    
   }
 
   
@@ -69,7 +77,7 @@ namespace core {
   //TODO refactor
   void Subdivider::execute(common::MyMesh& mesh, ChildrenParents& children_parents_map) const
   {
-    /*
+    
     using namespace common;
     
     std::vector<common::MyMesh::EdgeHandle> original_edges;
@@ -91,7 +99,7 @@ namespace core {
       MyMesh::Point new_point = (mesh.point(v1) + mesh.point(v2)) / 2.0;
       MyMesh::VertexHandle vnew = mesh.add_vertex(new_point);
       halfpoint_map[original_edge] = vnew;
-      children_parents_map[vnew] = {v1, v2};
+      children_parents_map.insert({vnew, {v1, v2}});
     }
 
     std::vector<common::MyMesh::FaceHandle> original_faces;
@@ -115,96 +123,24 @@ namespace core {
       }
     }
 
-    for (auto& original_edge : original_edges) {
-      //mesh.delete_edge(original_edge, false);
-    }
-    mesh.garbage_collection();
     
+    
+    for (auto& de : original_edges) {
+
+      mesh.delete_edge(de, false);
+    }
+    
+    mesh.garbage_collection();
+    std::cout << "-----------"<<std::endl;
     std::cout << mesh.n_faces() << std::endl;
     std::cout << mesh.n_edges() << std::endl;
     std::cout << mesh.n_vertices() << std::endl;
     
     return;
     
-    //////////////////////////////////////////
     
-    for (auto& original_edge : original_edges) {
-      if(!(mesh.face_handle(mesh.halfedge_handle(original_edge,0)).is_valid() && mesh.face_handle(mesh.halfedge_handle(original_edge,1)).is_valid())) {
-	continue;
-      }
-
-      
-      MyMesh::HalfedgeHandle heh = mesh.halfedge_handle(original_edge, 0);
-      MyMesh::HalfedgeHandle oheh = mesh.opposite_halfedge_handle(heh);
-
-      // Get the vertices
-      MyMesh::VertexHandle v1 = mesh.to_vertex_handle(heh);
-      MyMesh::VertexHandle v2 = mesh.to_vertex_handle(oheh);
-
-      // Create the new vertex at the midpoint
-      MyMesh::Point new_point = (mesh.point(v1) + mesh.point(v2)) / 2.0;
-      MyMesh::VertexHandle vnew = mesh.add_vertex(new_point);
-
-      // Get the faces
-      MyMesh::FaceHandle fh1 = mesh.face_handle(heh);
-      MyMesh::FaceHandle fh2 = mesh.face_handle(oheh);
-
-      // Store the vertices of the faces
-      std::vector<MyMesh::VertexHandle> quad_vertices;
-      std::vector<MyMesh::VertexHandle> tri_vertices;
- 
-      // Store the vertices of the quad
-      if (mesh.valence(fh1) == 3) {
-        for (MyMesh::VertexHandle vh : mesh.fv_range(fh1)) {
-	  if (vh != v1 && vh != v2) {
-	    tri_vertices.push_back(vh);
-	  }
-        }
-	tri_vertices.push_back(v1);
-	tri_vertices.push_back(v2);
-      }
-
-      // Store the vertices of the triangle
-      if (mesh.valence(fh2) == 4) {
-	quad_vertices.push_back(v1);
-	quad_vertices.push_back(v2);
-
-
-	for (MyMesh::VertexHandle vh : mesh.fv_range(fh2)) {
-	  if (vh != v1 && vh != v2) {
-	    quad_vertices.push_back(vh);
-	  }
-        }
-      }
-
-
-
-      // Delete the old faces
-      mesh.delete_face(fh1, false);
-      mesh.delete_face(fh2, false);
-
-      MyMesh::Point new_point_opposite = (mesh.point(quad_vertices[2]) + mesh.point(quad_vertices[3])) / 2.0;
-      MyMesh::VertexHandle vnew_opposite = mesh.add_vertex(new_point_opposite);
-      
-      // Add the new faces
-      std::vector<MyMesh::VertexHandle> new_face1 = {quad_vertices[2], vnew_opposite, vnew, quad_vertices[1]};
-      std::vector<MyMesh::VertexHandle> new_face2 = {vnew_opposite, quad_vertices[3], quad_vertices[0], vnew};
-      std::vector<MyMesh::VertexHandle> new_face3 = {tri_vertices[2], vnew, tri_vertices[0]};
-      std::vector<MyMesh::VertexHandle> new_face4 = {vnew, tri_vertices[1], tri_vertices[0]};
-      mesh.add_face(new_face4);
-      mesh.add_face(new_face3);
-      mesh.add_face(new_face2);
-      mesh.add_face(new_face1);
-
-      mesh.garbage_collection();
-      
-      std::cout << mesh.n_faces() << std::endl;
-      std::cout << mesh.n_edges() << std::endl;
-      std::cout << mesh.n_vertices() << std::endl;
-    }
-    */
     /////////////////////////////////
-
+    /*
     
     std::vector<common::MyMesh::EdgeHandle> original_edges;
     for (common::MyMesh::EdgeIter e_it = mesh.edges_begin(); e_it != mesh.edges_end(); ++e_it) {
@@ -282,7 +218,7 @@ namespace core {
       mesh.flip(flippable_edge);
 
     }
-    
+    */
   }
 
 

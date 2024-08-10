@@ -20,5 +20,6 @@ namespace common {
     
     inline double log_aesthetic_alpha = -1.0;
     inline Algorithm selected_alg = Algorithm::BASIC;
+    inline bool sync = false;
   }
 }
