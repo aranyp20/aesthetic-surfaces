@@ -230,7 +230,7 @@ std::vector<Canvas::qGlVertex> Canvas::printableFaceToTriangles(const common::My
     retval.push_back(retval[3]);
     retval.erase(retval.begin() + 2);
   }
-  
+
 
   return retval;
 }

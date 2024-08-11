@@ -14,10 +14,9 @@ struct MyTraits : public OpenMesh::DefaultTraits
   FaceAttributes(OpenMesh::Attributes::Status);
   EdgeAttributes(OpenMesh::Attributes::Status);
 };
-  typedef OpenMesh::PolyMesh_ArrayKernelT<MyTraits> BaseMesh;
+  typedef OpenMesh::TriMesh_ArrayKernelT<MyTraits> BaseMesh;
 
 
-  //typedef Openmesh::Polymesh_ArrayKernelT<MyTraits> BaseMesh;
 
   class MyMesh : public BaseMesh
   {

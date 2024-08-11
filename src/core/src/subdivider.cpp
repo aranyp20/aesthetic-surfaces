@@ -131,10 +131,6 @@ namespace core {
     }
     
     mesh.garbage_collection();
-    std::cout << "-----------"<<std::endl;
-    std::cout << mesh.n_faces() << std::endl;
-    std::cout << mesh.n_edges() << std::endl;
-    std::cout << mesh.n_vertices() << std::endl;
     
     return;
     

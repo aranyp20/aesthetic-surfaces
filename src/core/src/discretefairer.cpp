@@ -142,84 +142,84 @@ namespace core {
     }
 
   std::set<common::MyMesh::VertexHandle> DiscreteFairer::getEffectors(const common::MyMesh::VertexHandle& to, const ChildrenParents& child_parents_map) const
-    {
-      std::set<common::MyMesh::VertexHandle> result;
-      std::set<common::MyMesh::VertexHandle> tmp_visited_vertices;
+  {
+    std::set<common::MyMesh::VertexHandle> result;
+    std::set<common::MyMesh::VertexHandle> tmp_visited_vertices;
 
-      getEffectorsHelper(to, tmp_visited_vertices, result, child_parents_map);
+    getEffectorsHelper(to, tmp_visited_vertices, result, child_parents_map);
 
-      return result;
-    }
+    return result;
+  }
 
   std::vector<std::pair<common::MyMesh::VertexHandle, double>> DiscreteFairer::getWeighedEffectors(const common::MyMesh::VertexHandle& to, const ChildrenParents& child_parents_map, const common::MyMesh& mesh) const
-    {
-      std::vector<std::pair<common::MyMesh::VertexHandle, double>> retval;
-      const auto effectors = getEffectors(to, child_parents_map);
+  {
+    std::vector<std::pair<common::MyMesh::VertexHandle, double>> retval;
+    const auto effectors = getEffectors(to, child_parents_map);
 
-      	std::vector<common::MyMesh::VertexHandle> t_effectors;
-	for(const auto& a : effectors) {
-	  t_effectors.push_back(a); //TODO delete this
-	}
+    std::vector<common::MyMesh::VertexHandle> t_effectors;
+    for(const auto& a : effectors) {
+      t_effectors.push_back(a); //TODO delete this
+    }
 
-	if(effectors.size() == 1) {
-	  return retval;
-	}
-	
-      if(effectors.size() == 2) {
-	const auto p0 = mesh.point(to);
-	const auto p1 = mesh.point(t_effectors[0]);
-	const auto p2 = mesh.point(t_effectors[1]);
-	auto d1 = (p0 - p1).norm();
-	auto d2 = (p0 - p2).norm();
-	const auto normalizer = d2 + d1;
-	d1 = d1 / normalizer;
-	d2 = d2 / normalizer;
-	retval.push_back({t_effectors[0], d2});//TODO refactor
-	retval.push_back({t_effectors[1], d1});
-      }
-      else if (effectors.size() == 3) {
-	const auto p0 = mesh.point(to);
-	const auto p1 = mesh.point(t_effectors[0]);
-	const auto p2 = mesh.point(t_effectors[1]);
-	const auto p3 = mesh.point(t_effectors[2]);
-
-	const auto v0 = p2 - p1;
-	const auto v1 = p3 - p1;
-	const auto v2 = p0 - p1;
-	const float d00 = v0.dot(v0);
-	const float d01 = v0.dot(v1);
-	const float d11 = v1.dot(v1);
-	const float d20 = v2.dot(v0);
-	const float d21 = v2.dot(v1);
-	const float denom = d00 * d11 - d01 * d01;
-	const float v = (d11 * d20 - d01 * d21) / denom;
-	const float w = (d00 * d21 - d01 * d20) / denom;
-	const float u = 1.0f - v - w;
-	retval.push_back({t_effectors[0], u});
-	retval.push_back({t_effectors[1], v});
-	retval.push_back({t_effectors[2], w});
-
-      }
-      else if (effectors.size() == 4) { // todo sima else es a generalized mehet n-re
-
-	const auto barys = barycentricCoordinatesImproved(common::converter::meshPointToEigen(mesh.point(to)),
-			       common::converter::meshPointToEigen(mesh.point(t_effectors[0])),
-			       common::converter::meshPointToEigen(mesh.point(t_effectors[1])),
-			       common::converter::meshPointToEigen(mesh.point(t_effectors[2])),
-			       common::converter::meshPointToEigen(mesh.point(t_effectors[3])));
-
-	retval.push_back({t_effectors[0], barys[0]});
-	retval.push_back({t_effectors[1], barys[1]});
-	retval.push_back({t_effectors[2], barys[2]});
-	retval.push_back({t_effectors[3], barys[3]});
-	
-      }
-      else {
-	throw std::runtime_error("cant get weighed effectors...: " + std::to_string(effectors.size()));
-      }
-
+    if(effectors.size() == 1) {
       return retval;
     }
+	
+    if(effectors.size() == 2) {
+      const auto p0 = mesh.point(to);
+      const auto p1 = mesh.point(t_effectors[0]);
+      const auto p2 = mesh.point(t_effectors[1]);
+      auto d1 = (p0 - p1).norm();
+      auto d2 = (p0 - p2).norm();
+      const auto normalizer = d2 + d1;
+      d1 = d1 / normalizer;
+      d2 = d2 / normalizer;
+      retval.push_back({t_effectors[0], d2});//TODO refactor
+      retval.push_back({t_effectors[1], d1});
+    }
+    else if (effectors.size() == 3) {
+      const auto p0 = mesh.point(to);
+      const auto p1 = mesh.point(t_effectors[0]);
+      const auto p2 = mesh.point(t_effectors[1]);
+      const auto p3 = mesh.point(t_effectors[2]);
+
+      const auto v0 = p2 - p1;
+      const auto v1 = p3 - p1;
+      const auto v2 = p0 - p1;
+      const float d00 = v0.dot(v0);
+      const float d01 = v0.dot(v1);
+      const float d11 = v1.dot(v1);
+      const float d20 = v2.dot(v0);
+      const float d21 = v2.dot(v1);
+      const float denom = d00 * d11 - d01 * d01;
+      const float v = (d11 * d20 - d01 * d21) / denom;
+      const float w = (d00 * d21 - d01 * d20) / denom;
+      const float u = 1.0f - v - w;
+      retval.push_back({t_effectors[0], u});
+      retval.push_back({t_effectors[1], v});
+      retval.push_back({t_effectors[2], w});
+
+    }
+    else if (effectors.size() == 4) { // todo sima else es a generalized mehet n-re
+
+      const auto barys = barycentricCoordinatesImproved(common::converter::meshPointToEigen(mesh.point(to)),
+							common::converter::meshPointToEigen(mesh.point(t_effectors[0])),
+							common::converter::meshPointToEigen(mesh.point(t_effectors[1])),
+							common::converter::meshPointToEigen(mesh.point(t_effectors[2])),
+							common::converter::meshPointToEigen(mesh.point(t_effectors[3])));
+
+      retval.push_back({t_effectors[0], barys[0]});
+      retval.push_back({t_effectors[1], barys[1]});
+      retval.push_back({t_effectors[2], barys[2]});
+      retval.push_back({t_effectors[3], barys[3]});
+	
+    }
+    else {
+      throw std::runtime_error("cant get weighed effectors...: " + std::to_string(effectors.size()));
+    }
+
+    return retval;
+  }
 
 
   
@@ -254,8 +254,8 @@ namespace core {
       const auto Qm = mesh.point(iteratable);
       const Eigen::Vector3d Q(Qm[0], Qm[1], Qm[2]);
       
-      //return DiscreteFairer::Q(e_neighbors, normal, H, fe, Q);
-      return DiscreteFairer::Q2(e_neighbors, normal, H, fe, Q, cc.getLastM());
+      auto dnp = DiscreteFairer::Q_Gaussian(e_neighbors, normal, H, fe, Q, cc.getLastM());
+      return dnp;
   
     }
 
@@ -401,6 +401,7 @@ namespace core {
 	for(const auto& weighed_effector : weighed_effectors) {
 	  H += vertex_curvature_map.at(weighed_effector.first) * weighed_effector.second;
 	}
+	std::cout << "tc: "<<H << std::endl;
 	return H;
       }
       //////////////
@@ -440,7 +441,7 @@ namespace core {
     std::vector<std::pair<common::MyMesh::VertexHandle, Eigen::Vector3d>> new_vertex_positions;
     for(common::MyMesh::VertexIter v_it = mesh.vertices_begin(); v_it != mesh.vertices_end(); ++v_it){
       auto vh = *v_it;
-      if (!extended_vertex_static_infos.at(vh).is_original_vertex) {
+      if (!extended_vertex_static_infos.at(vh).is_original_vertex && vh.idx()==50) {
 	new_vertex_positions.emplace_back(vh, iterateVertex(mesh, vh, extended_vertex_static_infos.at(vh)));
       }
     }
@@ -482,6 +483,10 @@ namespace core {
     //metrics::CurvatureBased cb(mesh, *this);
     //cb.startSession();
 
+
+    OpenMesh::VPropHandleT<double> demo_color;
+    mesh.add_property(demo_color, "demo_color");
+    
     for(size_t i = 0; i < iteration_count ; i++){
       // Calculate the curvature for each vertex at the beginning of each iteration
       CurvatureCalculator mcc(mesh, true);
@@ -508,10 +513,11 @@ namespace core {
 
       std::cout<<"-----Iter--------"<<std::endl;
       for(auto vh : mesh.vertices()){
-	if(extended_vertex_static_infos.at(vh).is_original_vertex){
-	  CurvatureCalculator cc(mesh);
-	  cc.execute(vh);
-	  //std::cout<<cc.getMeanCurvature()<<std::endl;
+	CurvatureCalculator cc(mesh);
+	cc.execute(vh);
+	mesh.property(demo_color, vh) = cc.getGaussianCurvature();
+	if (vh.idx() == 50) {
+	  std::cout << "ahh: "<<cc.getGaussianCurvature() << std::endl;
 	}
       }
 
@@ -602,32 +608,31 @@ namespace core {
     }
 
     
-    
     const auto rat = fe.E * fe.G - fe.F * fe.F;
-    
-    const auto a = (row3sum * row5sum + row4sum * row4sum) / rat;
-    const auto b = (- a3 * row5sum - a5 * row3sum + 2 * row3sum * row5sum * p_k.dot(normal) + 2 * row4sum * row4sum * p_k.dot(normal)) / rat;
-    const auto c = (a3 * a5 - a3 * row5sum * p_k.dot(normal) - a5 * row3sum * p_k.dot(normal) + row3sum * row5sum * p_k.dot(normal) * p_k.dot(normal) - a4 * a4) / rat;
+
+
+    const auto pkndot = p_k.dot(normal);
+
+
+    const auto a = row3sum * row5sum - row4sum * row4sum;
+    const auto b = -a3 * row4sum -a5 * row3sum + 2 * row3sum * row5sum * pkndot + 2 * a4 * row4sum - 2 * pkndot * row4sum * row4sum;
+    const auto c = a3 * a5 - a3 * pkndot * row5sum - a5 * pkndot * row3sum + row5sum * row3sum * pkndot * pkndot - a4 * a4 + 2 * a4 * pkndot * row4sum - pkndot * pkndot * row4sum * row4sum;
 
 
     double t = 0;
     
     const auto determinant = b * b - 4 * a * c;
     if (determinant < 0) {
-      std::cout<<"det<0"<<std::endl;
     }
     else if (determinant < 0.001) {
-      std::cout << "det~~0" << std::endl;
       t = - b / (2 * a);
     }
     else {
-      std::cout << "det++" << std::endl;
       const auto t1 = (- b + sqrt(determinant)) / (2 * a);
       const auto t2 = (- b - sqrt(determinant)) / (2 * a);
-      t = std::max(t1,t2);
+      t = std::min(t1,t2);
     }
 
-    std::cout << "t: "<<t << std::endl;
     return p_k + normal * t;
   }
 
