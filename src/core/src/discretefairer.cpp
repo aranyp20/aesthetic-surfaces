@@ -441,7 +441,7 @@ namespace core {
     std::vector<std::pair<common::MyMesh::VertexHandle, Eigen::Vector3d>> new_vertex_positions;
     for(common::MyMesh::VertexIter v_it = mesh.vertices_begin(); v_it != mesh.vertices_end(); ++v_it){
       auto vh = *v_it;
-      if (!extended_vertex_static_infos.at(vh).is_original_vertex && vh.idx()==50) {
+      if (!extended_vertex_static_infos.at(vh).is_original_vertex) {
 	new_vertex_positions.emplace_back(vh, iterateVertex(mesh, vh, extended_vertex_static_infos.at(vh)));
       }
     }
@@ -516,9 +516,7 @@ namespace core {
 	CurvatureCalculator cc(mesh);
 	cc.execute(vh);
 	mesh.property(demo_color, vh) = cc.getGaussianCurvature();
-	if (vh.idx() == 50) {
-	  std::cout << "ahh: "<<cc.getGaussianCurvature() << std::endl;
-	}
+	std::cout << "ahh: "<<cc.getGaussianCurvature() << std::endl;
       }
 
     }
@@ -607,8 +605,7 @@ namespace core {
       a5 += (row5(i) * p[i]).dot(normal);
     }
 
-    
-    const auto rat = fe.E * fe.G - fe.F * fe.F;
+    const auto rat = H * (fe.E * fe.G - fe.F * fe.F);
 
 
     const auto pkndot = p_k.dot(normal);
@@ -616,7 +613,7 @@ namespace core {
 
     const auto a = row3sum * row5sum - row4sum * row4sum;
     const auto b = -a3 * row4sum -a5 * row3sum + 2 * row3sum * row5sum * pkndot + 2 * a4 * row4sum - 2 * pkndot * row4sum * row4sum;
-    const auto c = a3 * a5 - a3 * pkndot * row5sum - a5 * pkndot * row3sum + row5sum * row3sum * pkndot * pkndot - a4 * a4 + 2 * a4 * pkndot * row4sum - pkndot * pkndot * row4sum * row4sum;
+    const auto c = a3 * a5 - a3 * pkndot * row5sum - a5 * pkndot * row3sum + row5sum * row3sum * pkndot * pkndot - a4 * a4 + 2 * a4 * pkndot * row4sum - pkndot * pkndot * row4sum * row4sum - rat;
 
 
     double t = 0;
