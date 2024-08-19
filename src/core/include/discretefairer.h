@@ -24,6 +24,9 @@ public:
     std::vector<std::pair<common::MyMesh::VertexHandle, double>> weighed_effectors;
   };
 
+  void sortEffectors(const common::MyMesh& mesh, std::vector<common::MyMesh::VertexHandle>& effectors) const;
+
+  
   double calcTargetCurvature(const std::vector<std::pair<common::MyMesh::VertexHandle, double>>& weighed_effectors) const;
 
   void triangleExecuteDemo(common::MyMesh& mesh);

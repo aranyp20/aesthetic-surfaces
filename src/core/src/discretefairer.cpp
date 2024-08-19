@@ -5,6 +5,7 @@
 #include "curvaturecalculator.h"
 #include "mesh.h"
 #include "organize.hpp"
+#include <QtCore/qnamespace.h>
 #include <algorithm>
 #include <cstddef>
 #include <iostream>
@@ -93,14 +94,6 @@ namespace core {
       
       const auto bar_of_vertex = [P](const Eigen::Vector3d& pi, const Eigen::Vector3d& pi0, const Eigen::Vector3d& pi2) {
 
-	if (common::math::heron(pi, pi0, P) < 0.001) {
-	  std::cout << "alma:" << std::endl;
-	  std::cout << P << std::endl;
-	  std::cout << pi << std::endl;
-	  std::cout << pi0 << std::endl;
-	  std::cout << pi2 << std::endl;
-	}
-
 	return common::math::heron(pi, pi0, pi2) / (common::math::heron(pi, pi0, P) * common::math::heron(pi, pi2, P));
 	
       };
@@ -172,6 +165,9 @@ namespace core {
     if(effectors.size() == 1) {
       return retval;
     }
+
+    sortEffectors(mesh.original_state, t_effectors); // todo this shouldnt be performed for every vertex separately
+
 	
     if(effectors.size() == 2) {
       const auto p0 = mesh.point(to);
@@ -271,11 +267,11 @@ namespace core {
       std::map<common::MyMesh::VertexHandle, DiscreteFairer::ExtendedVertexStaticInfo> retval;
 
       CurvatureCalculator cc(mesh);
-      
+
       for (auto vh : mesh.vertices()) {
 	
 	DiscreteFairer::ExtendedVertexStaticInfo evsi;
-	auto weighed_effectors = getWeighedEffectors(vh, child_parents_map, mesh);
+	const auto weighed_effectors = getWeighedEffectors(vh, child_parents_map, mesh);
 
 
 	evsi.is_original_vertex = weighed_effectors.size() < 2;
@@ -283,11 +279,48 @@ namespace core {
 	if (!evsi.is_original_vertex) {
 	  evsi.weighed_effectors = weighed_effectors;
 	}
+
+	
 	retval.insert({vh, evsi});
       }
       
       return retval;
     }
+
+  void DiscreteFairer::sortEffectors(const common::MyMesh& mesh, std::vector<common::MyMesh::VertexHandle>& effectors) const
+  {
+    const auto are_neighbors = [mesh](const common::MyMesh::VertexHandle& vh1, const common::MyMesh::VertexHandle& vh2)
+    {
+      return mesh.find_halfedge(vh1, vh2).is_valid() || mesh.find_halfedge(vh2, vh1).is_valid();
+    };
+
+    std::vector<common::MyMesh::VertexHandle> sorted_effectors(effectors.size());
+    std::vector<size_t> used_indicies(effectors.size());
+    sorted_effectors[0] = effectors[0];
+    used_indicies[0] = 0;
+
+    for(size_t i = 1; i < effectors.size(); i++) {
+      bool found = false;
+      for(size_t j = 1; j < effectors.size(); j++) {
+
+	if(std::find(used_indicies.begin(), used_indicies.end(), j) != used_indicies.end()) {
+	  continue;
+	}
+
+	if (are_neighbors(sorted_effectors[i-1], effectors[j])) {
+	  sorted_effectors[i] = effectors[j];
+	  used_indicies[i] = j;
+	  found = true;
+	  break;
+	}
+      }
+      if (!found) {
+	throw std::runtime_error("sortEffectors: cant sort effectors.");
+      }
+    }
+
+    effectors = sorted_effectors;
+  }
 
         
   void DiscreteFairer::triangleExecuteDemo(common::MyMesh& mesh)

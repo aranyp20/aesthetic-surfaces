@@ -124,18 +124,18 @@ void MainWindow::setHighlightEdges(int status)
 void MainWindow::loadModel()
 {
   *m_mesh = object_loader.loadFromFile( ui->modelSelectionComboBox->currentIndex());
-  *m_loaded_mesh = std::make_shared<common::MyMesh>(**m_mesh);
+  //*m_loaded_mesh = std::make_shared<common::MyMesh>(**m_mesh);
   ui->main_openGL_widget->setPrintable(*m_mesh);
   ui->main_openGL_widget->update();
 }
 
 void MainWindow::resetModel()
 {
-  if(!m_loaded_mesh) {
+  if(!*m_mesh) {
     std::cout << "No loaded mesh."<< std::endl;
     return;
   }
-  *m_mesh = std::make_shared<common::MyMesh>(**m_loaded_mesh);
+  *m_mesh = std::make_shared<common::MyMesh>((**m_mesh).original_state);
   ui->main_openGL_widget->setPrintable(*m_mesh);
   ui->main_openGL_widget->update();
 }
@@ -171,11 +171,11 @@ void MainWindow::changeMeshSlot(bool index)
 {
   if (index) {
     m_mesh = &m_mesh_a;
-    m_loaded_mesh = &m_loaded_mesh_a;
+    //m_loaded_mesh = &m_loaded_mesh_a;
   }
   else {
     m_mesh = &m_mesh_b;
-    m_loaded_mesh = &m_loaded_mesh_b;
+    //m_loaded_mesh = &m_loaded_mesh_b;
   }
 
   ui->main_openGL_widget->setPrintable(*m_mesh);
@@ -190,7 +190,7 @@ void MainWindow::setLogAestheticAlpha(double v)
 void MainWindow::changeLoadedModel(int index)
 {
   *m_mesh = object_loader.loadFromFile(index);
-  *m_loaded_mesh = std::make_shared<common::MyMesh>(**m_mesh);
+  //*m_loaded_mesh = std::make_shared<common::MyMesh>(**m_mesh);
   ui->main_openGL_widget->setPrintable(*m_mesh);
   ui->main_openGL_widget->update();
 }

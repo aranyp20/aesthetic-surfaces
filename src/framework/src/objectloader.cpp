@@ -82,7 +82,7 @@ void aaaaa(common::MyMesh& mesh)
 
 std::shared_ptr<common::MyMesh> ObjectLoader::loadFromFile(const std::string& path) const
 {  
-  common::MyMesh input_mesh;
+  common::BaseMesh input_mesh;
 
   if (!OpenMesh::IO::read_mesh(input_mesh, path))
   {
@@ -91,9 +91,7 @@ std::shared_ptr<common::MyMesh> ObjectLoader::loadFromFile(const std::string& pa
   }
   else {
 
-    common::MyMesh mesh;
 
-    aaaaa(mesh);
 
     //    preprocessMesh(input_mesh);
 
@@ -111,7 +109,6 @@ std::shared_ptr<common::MyMesh> ObjectLoader::loadFromFile(const std::string& pa
     
     for (const auto& entry : std::filesystem::directory_iterator("./")) {
       if (entry.path().extension() == ".obj" || entry.path().extension() == ".stl") {
-        std::cout << entry.path() << std::endl;
 	retval.push_back(entry.path());
       }
     }

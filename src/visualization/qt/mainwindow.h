@@ -30,13 +30,10 @@ private:
   std::shared_ptr<Canvas> active_canvas;
   
   std::shared_ptr<common::MyMesh>* m_mesh = nullptr;
-  std::shared_ptr<common::MyMesh>* m_loaded_mesh = nullptr;
 
   std::shared_ptr<common::MyMesh> m_mesh_a;
-  std::shared_ptr<common::MyMesh> m_loaded_mesh_a;
 
   std::shared_ptr<common::MyMesh> m_mesh_b;
-  std::shared_ptr<common::MyMesh> m_loaded_mesh_b;
 
   
 
