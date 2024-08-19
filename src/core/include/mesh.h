@@ -14,7 +14,7 @@ struct MyTraits : public OpenMesh::DefaultTraits
   FaceAttributes(OpenMesh::Attributes::Status);
   EdgeAttributes(OpenMesh::Attributes::Status);
 };
-  typedef OpenMesh::TriMesh_ArrayKernelT<MyTraits> BaseMesh;
+  typedef OpenMesh::PolyMesh_ArrayKernelT<MyTraits> BaseMesh;
 
 
 
@@ -22,6 +22,10 @@ struct MyTraits : public OpenMesh::DefaultTraits
   {
   public:
     std::map<common::MyMesh::VertexHandle, std::array<common::MyMesh::VertexHandle,2>> children_parents_map;
+    inline void reset()
+    {
+      
+    }
     
   };
 }

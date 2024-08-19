@@ -181,20 +181,14 @@ namespace core
             // Eigen uses the least squares method for overdetermined systems by default
             b = A.colPivHouseholderQr().solve(c);
 
-	    if (uvs.size()==6) {
-	      //std::cout<<"------------"<<std::endl;
-	      //std::cout<<(A.transpose() * A).inverse() * A.transpose()<<std::endl;
-	      //std::cout<<"------------"<<std::endl;
-	      last_M = (A.transpose() * A).inverse() * A.transpose();
-
-	    }
+	    last_M = (A.transpose() * A).inverse() * A.transpose();
 	}
         else
         {
-            // Min norm methods
+            // Min norm method
             b = A.transpose() * (A * A.transpose()).inverse() * c;
 
-	    //last_M = A.transpose() * (A * A.transpose()).inverse();
+	    last_M = A.transpose() * (A * A.transpose()).inverse();
 	}
 
 	//		tessellateSurface(100, {b.row(0), b.row(1), b.row(2), b.row(3), b.row(4)});
@@ -238,8 +232,11 @@ namespace core
 
     double CurvatureCalculator::getMeanCurvature() const
     {
-      return getGaussianCurvature();
       const auto& fe = fundamental_elements;
+      //std::cout << (fe.L * fe.G - fe.M * fe.F + fe.N * fe.E - fe.M * fe.F) / (2 * (fe.E * fe.G - fe.F * fe.F)) << std::endl;
+      //std::cout << getGaussianCurvature() << std::endl;
+
+      //return getGaussianCurvature();
       return (fe.L * fe.G - fe.M * fe.F + fe.N * fe.E - fe.M * fe.F) / (2 * (fe.E * fe.G - fe.F * fe.F));
     }
 
@@ -352,7 +349,7 @@ namespace core
     }
 
 
-  Eigen::Matrix<double, 5, 6> CurvatureCalculator::getLastM() const
+  Eigen::Matrix<double, 5, Eigen::Dynamic> CurvatureCalculator::getLastM() const
   {
     return last_M;
   }

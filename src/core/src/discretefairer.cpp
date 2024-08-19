@@ -93,6 +93,14 @@ namespace core {
       
       const auto bar_of_vertex = [P](const Eigen::Vector3d& pi, const Eigen::Vector3d& pi0, const Eigen::Vector3d& pi2) {
 
+	if (common::math::heron(pi, pi0, P) < 0.001) {
+	  std::cout << "alma:" << std::endl;
+	  std::cout << P << std::endl;
+	  std::cout << pi << std::endl;
+	  std::cout << pi0 << std::endl;
+	  std::cout << pi2 << std::endl;
+	}
+
 	return common::math::heron(pi, pi0, pi2) / (common::math::heron(pi, pi0, P) * common::math::heron(pi, pi2, P));
 	
       };
@@ -227,20 +235,19 @@ namespace core {
 
   
   Eigen::Vector3d DiscreteFairer::iterateVertex(common::MyMesh& mesh, common::MyMesh::VertexHandle& iteratable, const DiscreteFairer::ExtendedVertexStaticInfo& extended_vertex_static_info) const
-    {
+  {
       
-      std::vector<common::MyMesh::VertexHandle> neighbors;
-      for (common::MyMesh::ConstVertexVertexIter vv_it = mesh.cvv_begin(iteratable); vv_it != mesh.cvv_end(iteratable); ++vv_it)
-	{
-	  neighbors.push_back(*vv_it);
-	}
+    std::vector<common::MyMesh::VertexHandle> neighbors;
+    for (common::MyMesh::ConstVertexVertexIter vv_it = mesh.cvv_begin(iteratable); vv_it != mesh.cvv_end(iteratable); ++vv_it) {
+      neighbors.push_back(*vv_it);
+    }
 
 
     
-      std::array<Eigen::Vector3d, 6> e_neighbors;
-      for(size_t i = 0; i < 6; i++){
-	const auto& p = mesh.point(neighbors[i]);
-	e_neighbors[i] =  Eigen::Vector3d(p[0], p[1], p[2]);
+      std::vector<Eigen::Vector3d> e_neighbors;
+      for(const auto& neighbor : neighbors){
+	const auto& p = mesh.point(neighbor);
+	e_neighbors.emplace_back(p[0], p[1], p[2]);
       }
 
       CurvatureCalculator cc(mesh, true);
@@ -254,7 +261,7 @@ namespace core {
       const auto Qm = mesh.point(iteratable);
       const Eigen::Vector3d Q(Qm[0], Qm[1], Qm[2]);
       
-      auto dnp = DiscreteFairer::Q_Gaussian(e_neighbors, normal, H, fe, Q, cc.getLastM());
+      auto dnp = DiscreteFairer::Q2(e_neighbors, normal, H, fe, Q, cc.getLastM());
       return dnp;
   
     }
@@ -268,7 +275,9 @@ namespace core {
       for (auto vh : mesh.vertices()) {
 	
 	DiscreteFairer::ExtendedVertexStaticInfo evsi;
-	const auto weighed_effectors = getWeighedEffectors(vh, child_parents_map, mesh);
+	auto weighed_effectors = getWeighedEffectors(vh, child_parents_map, mesh);
+
+
 	evsi.is_original_vertex = weighed_effectors.size() < 2;
 
 	if (!evsi.is_original_vertex) {
@@ -401,7 +410,6 @@ namespace core {
 	for(const auto& weighed_effector : weighed_effectors) {
 	  H += vertex_curvature_map.at(weighed_effector.first) * weighed_effector.second;
 	}
-	std::cout << "tc: "<<H << std::endl;
 	return H;
       }
       //////////////
@@ -412,7 +420,6 @@ namespace core {
 	  bern_sum += bernstein_interpol(weighed_effector.second);
 	}
 	//bern_sum = 3.0/2.0; TODO
-	//std::cout<<bern_sum<<std::endl;
 	for(const auto& weighed_effector : weighed_effectors) {
 	  H += vertex_curvature_map.at(weighed_effector.first) * (bernstein_interpol(weighed_effector.second)/bern_sum);
 	}
@@ -426,7 +433,6 @@ namespace core {
 	  H += std::pow(vertex_curvature_map.at(weighed_effector.first),-alpha) * weighed_effector.second;
 	}
 	
-	//std::cout<<std::pow(H, -1.0 / alpha)<<std::endl;
 	
 	return std::pow(H, -1.0 / alpha);
 	return H;
@@ -515,8 +521,8 @@ namespace core {
       for(auto vh : mesh.vertices()){
 	CurvatureCalculator cc(mesh);
 	cc.execute(vh);
-	mesh.property(demo_color, vh) = cc.getGaussianCurvature();
-	std::cout << "ahh: "<<cc.getGaussianCurvature() << std::endl;
+	//mesh.property(demo_color, vh) = cc.getGaussianCurvature();
+
       }
 
     }
@@ -543,27 +549,27 @@ namespace core {
   }
 
 
-  Eigen::Vector3d DiscreteFairer::Q2(const std::array<Eigen::Vector3d, 6>& p,const Eigen::Vector3d& normal, double H,  const CurvatureCalculator::FundamentalElements& fe, const Eigen::Vector3d& Q, const Eigen::Matrix<double, 5 , 6>& M)
+  Eigen::Vector3d DiscreteFairer::Q2(const std::vector<Eigen::Vector3d>& p,const Eigen::Vector3d& normal, double H,  const CurvatureCalculator::FundamentalElements& fe, const Eigen::Vector3d& Q, const Eigen::Matrix<double, 5 , Eigen::Dynamic>& M)
   {
 
-     const auto p_k = common::average({p[0], p[1], p[2], p[3], p[4], p[5]});
-
+    const auto p_k = common::average(p);
+     const auto neighbour_count = p.size();
 
     Eigen::RowVectorXd row3 = M.row(2);
     double dotsum_m3 = 0.0;
-    for(size_t i = 0; i< 6; i++) {
+    for(size_t i = 0; i < neighbour_count; i++) {
       dotsum_m3 += (row3(i) * p[i]).dot(normal);
     }
 
     Eigen::RowVectorXd row4 = M.row(3);
     double dotsum_m4 = 0.0;
-    for(size_t i = 0; i< 6; i++) {
+    for(size_t i = 0; i< neighbour_count; i++) {
       dotsum_m4 += (row4(i) * p[i]).dot(normal);
     }
 
     Eigen::RowVectorXd row5 = M.row(4);
     double dotsum_m5 = 0.0;
-    for(size_t i = 0; i< 6; i++) {
+    for(size_t i = 0; i< neighbour_count; i++) {
       dotsum_m5 += (row5(i) * p[i]).dot(normal);
     }
 

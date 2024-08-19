@@ -76,7 +76,7 @@ namespace core
       CurvatureCalculator(common::MyMesh &mesh, bool _use_adaptive_uvs = false);
 
 
-      Eigen::Matrix<double, 5, 6> getLastM() const;
+      Eigen::Matrix<double, 5, Eigen::Dynamic> getLastM() const;
     private:
 
         common::MyMesh& mesh;
@@ -86,7 +86,7 @@ namespace core
 
       bool use_adaptive_uvs = false;
 
-      Eigen::Matrix<double, 5, 6> last_M;
+      Eigen::Matrix<double, 5, Eigen::Dynamic> last_M;
     };
 
 }

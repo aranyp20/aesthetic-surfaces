@@ -54,9 +54,9 @@ static Eigen::Vector3d Q(const std::array<Eigen::Vector3d, 6>& p,
 			 const Eigen::Vector3d& Q);
 
 
-  static Eigen::Vector3d Q2(const std::array<Eigen::Vector3d, 6>& p,
+  static Eigen::Vector3d Q2(const std::vector<Eigen::Vector3d>& p,
 			 const Eigen::Vector3d& normal, double H, const CurvatureCalculator::FundamentalElements& fe,
-			    const Eigen::Vector3d& Q, const Eigen::Matrix<double, 5, 6>& M);
+			    const Eigen::Vector3d& Q, const Eigen::Matrix<double, 5, Eigen::Dynamic>& M);
 
 
    static Eigen::Vector3d Q_Gaussian(const std::array<Eigen::Vector3d, 6>& p,
