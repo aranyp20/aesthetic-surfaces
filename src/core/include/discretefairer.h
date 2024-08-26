@@ -3,6 +3,7 @@
 #include "curvaturecalculator.h"
 #include "mesh.h"
 #include "subdivider.h"
+#include <functional>
 
 
 namespace core {
@@ -31,6 +32,7 @@ public:
 
   void triangleExecuteDemo(common::MyMesh& mesh);
   void pentaExecuteDemo(common::MyMesh& mesh);
+  void triangleGaussExecuteDemo(common::MyMesh& mesh);
 
   std::map<common::MyMesh::VertexHandle, DiscreteFairer::ExtendedVertexStaticInfo> generateExtendedVertexSaticInfos(common::MyMesh& mesh, const ChildrenParents& child_parents_map) const;
 
@@ -62,13 +64,13 @@ static Eigen::Vector3d Q(const std::array<Eigen::Vector3d, 6>& p,
 			    const Eigen::Vector3d& Q, const Eigen::Matrix<double, 5, Eigen::Dynamic>& M);
 
 
-   static Eigen::Vector3d Q_Gaussian(const std::array<Eigen::Vector3d, 6>& p,
+   static Eigen::Vector3d Q_Gaussian(const std::vector<Eigen::Vector3d>& p,
 			 const Eigen::Vector3d& normal, double H, const CurvatureCalculator::FundamentalElements& fe,
 			    const Eigen::Vector3d& Q, const Eigen::Matrix<double, 5, 6>& M);
 
 public:
 
-void execute(common::MyMesh& mesh, size_t iteration_count);
+  void execute(common::MyMesh& mesh, size_t iteration_count, std::function<void(int)> cb);
 
   const ChildrenParents& getChildParentsMap() const;
   

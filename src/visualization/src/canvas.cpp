@@ -1,6 +1,11 @@
 #include "canvas.h"
 #include "curvaturecalculator.h"
 #include "organize.hpp"
+#include "settings.h"
+#include "type_converter.h"
+#include <OpenGL/OpenGL.h>
+#include <QPainter>
+#include <QtCore/qnamespace.h>
 
 
 
@@ -320,6 +325,7 @@ void Canvas::paintGL()
     sp->setAttributeBuffer(1, GL_FLOAT, offsetof(qGlVertex, color), 3, sizeof(qGlVertex));
 
 */
+    glEnable(GL_DEPTH_TEST);
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     std::vector<qGlVertex> edgpoints = printableMeshToLines();
@@ -351,7 +357,7 @@ void Canvas::paintGL()
 	Eigen::Vector4d c_pos = p*v*m *  Eigen::Vector4d(line.position[0], line.position[1], line.position[2], 1.0);
 	c_pos = c_pos/ c_pos[3];
 	glColor3f(1.0, 1.0, 1.0);
-	glVertex3f(c_pos[0], c_pos[1], c_pos[2] - 0.0001f);
+	glVertex3f(c_pos[0], c_pos[1], c_pos[2] - 0.01f);
       }
       glEnd();
     }
@@ -364,8 +370,28 @@ void Canvas::paintGL()
       glVertex3f(c_pos[0], c_pos[1], c_pos[2]);
     }
     glEnd();
-}
 
+
+    if(common::settings::show_vertex_ids) {
+      for(const auto& vertex : printable_mesh->vertices()) {
+	const auto pos = common::converter::meshPointToEigen(printable_mesh->point(vertex));
+	Eigen::Vector4d c_pos = p*v*m *  Eigen::Vector4d(pos[0], pos[1], pos[2], 1.0);
+	c_pos = c_pos/ c_pos[3];
+
+	int x_screen = (int)((c_pos[0] + 1.0f) * 0.5f * width());
+	int y_screen = (int)((1.0f - c_pos[1]) * 0.5f * height());
+
+	QPainter painter(this);
+	glDisable(GL_DEPTH_TEST);
+	painter.setPen(Qt::blue);
+	painter.setFont(QFont("Arial", 10));
+	painter.drawText(x_screen, y_screen, std::to_string(vertex.idx()).c_str());
+	glEnable(GL_DEPTH_TEST);
+	painter.end();
+      }
+
+    }
+}
 
 void Canvas::resizeGL(int w, int h)
 {

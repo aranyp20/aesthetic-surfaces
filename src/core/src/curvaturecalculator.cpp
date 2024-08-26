@@ -155,7 +155,6 @@ namespace core
     {
         const auto uvs = ipp.calcUVs(use_adaptive_uvs);
 
-
         const auto res_size = 5;
         Eigen::MatrixXd A = Eigen::MatrixXd::Random(uvs.size(), res_size);
         Eigen::MatrixXd c = Eigen::MatrixXd::Random(uvs.size(), 3);
@@ -236,7 +235,6 @@ namespace core
       //std::cout << (fe.L * fe.G - fe.M * fe.F + fe.N * fe.E - fe.M * fe.F) / (2 * (fe.E * fe.G - fe.F * fe.F)) << std::endl;
       //std::cout << getGaussianCurvature() << std::endl;
 
-      //return getGaussianCurvature();
       return (fe.L * fe.G - fe.M * fe.F + fe.N * fe.E - fe.M * fe.F) / (2 * (fe.E * fe.G - fe.F * fe.F));
     }
 
@@ -248,23 +246,7 @@ namespace core
       return (fe.L * fe.N - fe.M * fe.M) / (fe.E * fe.G - fe.F * fe.F);
     }
 
-    double CurvatureCalculator::getMaxPrincipleCurvature() const
-    {
-        const auto main_curvature = getMeanCurvature();
-        const auto gaussian_curvature = getGaussianCurvature();
-        return 0; 
-    }
-
-/*
-    k2 = B - k1
-    k1(B - k1) = A
-
-    k1*B - k1*k1 -A= 0
-
-    a=-1
-    b=B
-    c=-A
-*/
+  
 
     void CurvatureCalculator::execute(common::MyMesh::VertexHandle &vh)
     {
@@ -352,5 +334,41 @@ namespace core
   Eigen::Matrix<double, 5, Eigen::Dynamic> CurvatureCalculator::getLastM() const
   {
     return last_M;
+  }
+
+  Eigen::Matrix2d CurvatureCalculator::getShapeOperator() const
+  {
+    Eigen::Matrix2d fI;
+    fI << fundamental_elements.L, fundamental_elements.M,
+      fundamental_elements.M, fundamental_elements.N;
+    Eigen::Matrix2d fII;
+    fII << fundamental_elements.E, fundamental_elements.F,
+      fundamental_elements.F, fundamental_elements.G;
+
+    return fI * fII.inverse();
+  }
+
+  CurvatureCalculator::PrincipleCurvatures CurvatureCalculator::getPrincipleCurvatures() const
+  {
+    const auto S = getShapeOperator();
+
+    PrincipleCurvatures retval;
+
+    // Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> solver(A); todo for symmetric
+    Eigen::EigenSolver<Eigen::MatrixXd> solver(S);
+    if(solver.info() == Eigen::Success) {
+      retval.umbolic = true; //todo rly? also check for imaginarey part
+      retval.min_val = std::min(-solver.eigenvalues()[0].real(), -solver.eigenvalues()[1].real());
+      retval.max_val = std::max(-solver.eigenvalues()[0].real(), -solver.eigenvalues()[1].real()); //todo a mean curvature keplete flippel mindent ezert kell ide minusz
+      //std::cout << "A: "<< retval.min_val<<" "<<retval.max_val << std::endl;
+    }
+    else {
+      retval.umbolic = false;
+      retval.min_val = retval.max_val = -getMeanCurvature();
+      std::cout << "B: " << retval.min_val << std::endl;
+    }
+
+    return retval;
+
   }
 }

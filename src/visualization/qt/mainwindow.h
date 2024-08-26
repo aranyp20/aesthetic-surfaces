@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QtWidgets/qprogressbar.h>
 #include <memory>
 #include <shared_mutex>
 #include "canvas.h"
@@ -23,13 +24,17 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+
+  void cbSliceBarProgressed(int val);
+  static QProgressBar* mainProgressBar;
+
 private:
   Ui::MainWindow *ui;
 
 
   std::shared_ptr<Canvas> active_canvas;
   
-  std::shared_ptr<common::MyMesh>* m_mesh = nullptr;
+  std::shared_ptr<common::MyMesh>* m_mesh = &m_mesh_a;
 
   std::shared_ptr<common::MyMesh> m_mesh_a;
 
@@ -41,8 +46,14 @@ private:
   core::DiscreteFairer discrete_fairer;
   core::Subdivider subdivider;
 
+  
   int df_subdivision_count = 0;
   int df_iteration_count = 0;
+
+
+  void connectSignalsAndSlots();
+  void initWidgets();
+
 public slots:
 
   void yawPlus();
@@ -52,6 +63,7 @@ public slots:
   void rollPlus();
   void rollMinus();
   void setHighlightEdges(int status);
+  void setShowVertexIds(int stataus);
   void loadModel();
   void changeLoadedModel(int index);
   void resetModel();

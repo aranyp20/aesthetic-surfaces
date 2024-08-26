@@ -3,11 +3,13 @@
 #include <OpenMesh/Core/IO/MeshIO.hh>
 #include "common_defines.h"
 #include "curvaturecalculator.h"
+#include "mainwindow.h"
 #include "mesh.h"
 #include "organize.hpp"
 #include <QtCore/qnamespace.h>
 #include <algorithm>
 #include <cstddef>
+#include <functional>
 #include <iostream>
 #include <map>
 #include <ostream>
@@ -256,8 +258,7 @@ namespace core {
 
       const auto Qm = mesh.point(iteratable);
       const Eigen::Vector3d Q(Qm[0], Qm[1], Qm[2]);
-      
-      auto dnp = DiscreteFairer::Q2(e_neighbors, normal, H, fe, Q, cc.getLastM());
+      auto dnp = DiscreteFairer::Q_Gaussian(e_neighbors, normal, H, fe, Q, cc.getLastM());
       return dnp;
   
     }
@@ -430,9 +431,85 @@ namespace core {
 
       
     }
+
+
+  double calcSignedGaussianCurvature(const CurvatureCalculator& cc)
+  {
+    return cc.getGaussianCurvature();
+    const auto principle_curvatures = cc.getPrincipleCurvatures();
+    const auto chosen_curvature (std::fabs(principle_curvatures.min_val) > std::fabs(principle_curvatures.max_val) ? principle_curvatures.min_val : principle_curvatures.max_val);
+    return chosen_curvature < 0 ? -std::fabs(cc.getGaussianCurvature()) : std::fabs(cc.getGaussianCurvature());
+  }
+
+  void DiscreteFairer::triangleGaussExecuteDemo(common::MyMesh& mesh)
+  {
+    /*
+    static bool was_init = false;
+    if(!was_init) {
+      extended_vertex_static_infos = generateExtendedVertexSaticInfos(mesh, mesh.children_parents_map); //todo ezt mindig ujra kell generalni?
+      was_init = true;
+    }
+    */
+
+    extended_vertex_static_infos = generateExtendedVertexSaticInfos(mesh, mesh.children_parents_map); //todo ezt mindig ujra kell generalni?
+
+
+    CurvatureCalculator cc(mesh);
+
+    for(common::MyMesh::VertexHandle vert : mesh.vertices()) {
+      if(extended_vertex_static_infos.at(vert).is_original_vertex) {
+	cc.execute(vert);
+	vertex_curvature_map.insert({vert, calcSignedGaussianCurvature(cc)});
+      }
+    }
+    /*
+    auto vh1 = mesh.vertex_handle(6);
+    cc.execute(vh1);
+    vertex_curvature_map.insert({vh1, calcSignedGaussianCurvature(cc)});
+    auto vh2 = mesh.vertex_handle(10);
+    cc.execute(vh2);
+    vertex_curvature_map.insert({vh2, calcSignedGaussianCurvature(cc)});
+    auto vh3 = mesh.vertex_handle(11);
+    cc.execute(vh3);
+    vertex_curvature_map.insert({vh3, calcSignedGaussianCurvature(cc)});
+    */
+
+    std::vector<int> av{102, 24, 100, 105, 43, 42, 41, 29, 41, 16, 108, 76, 71, 6, 10, 11};
+
+    std::vector<std::pair<common::MyMesh::VertexHandle, Eigen::Vector3d>> new_vertex_positions;
+    for(common::MyMesh::VertexIter v_it = mesh.vertices_begin(); v_it != mesh.vertices_end(); ++v_it){
+      auto vh = *v_it;
+      if(std::find(av.begin(), av.end(),vh.idx()) == av.end()) {
+	//continue;
+      }
+      if (!extended_vertex_static_infos.at(vh).is_original_vertex) {
+	new_vertex_positions.emplace_back(vh, iterateVertex(mesh, vh, extended_vertex_static_infos.at(vh)));
+      }
+    }
+      
+    // Replace each vertex to its new position
+    for (auto& vertex_with_new_pos : new_vertex_positions) {
+      // TODO: conversion in common (new file for all of these)
+      const auto& new_pos_e = vertex_with_new_pos.second;
+      common::MyMesh::Point new_pos(new_pos_e[0], new_pos_e[1], new_pos_e[2]);
+	
+      mesh.point(vertex_with_new_pos.first) = new_pos;
+    }
+
+
+    OpenMesh::VPropHandleT<double> demo_color;
+    mesh.add_property(demo_color, "demo_color");
     
-
-
+    for(auto vh : mesh.vertices()){
+      if(std::find(av.begin(), av.end(),vh.idx()) == av.end()) {
+	//continue;
+      }
+      CurvatureCalculator cc2(mesh);
+      cc2.execute(vh);
+      //std::cout << cc2.getGaussianCurvature() << std::endl;
+      mesh.property(demo_color, vh) = cc2.getGaussianCurvature();
+    }
+  }
   
   double DiscreteFairer::calcTargetCurvature(const std::vector<std::pair<common::MyMesh::VertexHandle, double>>& weighed_effectors) const
   {
@@ -507,18 +584,21 @@ namespace core {
     }
   }
 
-  void DiscreteFairer::execute(common::MyMesh& mesh, size_t iteration_count)
+  void DiscreteFairer::execute(common::MyMesh& mesh, size_t iteration_count, std::function<void(int)> cb)
   {
-    if (mesh.n_vertices() == 3) {
+    //return triangleGaussExecuteDemo(mesh);
+
+    
+    if (mesh.n_vertices() == 3 && false) {
       return triangleExecuteDemo(mesh);
     }
-    if (mesh.n_vertices() == 5) {
+    if (mesh.n_vertices() == 5 && false) {
       return pentaExecuteDemo(mesh);
     }
-
+    
     extended_vertex_static_infos = generateExtendedVertexSaticInfos(mesh, mesh.children_parents_map); //todo ezt mindig ujra kell generalni?
-    //std::cout<<"DiscreteFairer: ExtendedVertexStaticInfos are generated."<<std::endl;
 
+    
     //metrics::CurvatureBased cb(mesh, *this);
     //cb.startSession();
 
@@ -535,7 +615,7 @@ namespace core {
 	auto vh = *v_it;
 	if(extended_vertex_static_infos.at(vh).is_original_vertex){
 	  mcc.execute(vh);
-	  vertex_curvature_map[vh] =  mcc.getMeanCurvature();
+	  vertex_curvature_map[vh] =  mcc.getGaussianCurvature();
 	  //std::cout<<"Curvature: "<< curvature<<std::endl;
 	}
       }
@@ -558,9 +638,11 @@ namespace core {
 
       }
 
+      cb(static_cast<int>((i+1) * 100.0 / iteration_count));
+
     }
     //cb.endSession();
-    //OpenMesh::IO::write_mesh(mesh, "result.obj");
+    OpenMesh::IO::write_mesh(mesh, "result.obj");
 
 
 
@@ -615,10 +697,16 @@ namespace core {
 
 
 
-    Eigen::Vector3d DiscreteFairer::Q_Gaussian(const std::array<Eigen::Vector3d, 6>& p,const Eigen::Vector3d& normal, double H,  const CurvatureCalculator::FundamentalElements& fe, const Eigen::Vector3d& Q, const Eigen::Matrix<double, 5 , 6>& M)
+    Eigen::Vector3d DiscreteFairer::Q_Gaussian(const std::vector<Eigen::Vector3d>& p,const Eigen::Vector3d& normal, double H,  const CurvatureCalculator::FundamentalElements& fe, const Eigen::Vector3d& Q, const Eigen::Matrix<double, 5 , 6>& M)
   {
+    bool chose_max = true;
+    if (H < 0) {
+      chose_max = !chose_max;
+      //H *= -1;
+    }
 
-     const auto p_k = common::average({p[0], p[1], p[2], p[3], p[4], p[5]});
+
+    const auto p_k = common::average(p);
 
 
     const double row3sum = M.row(2).sum();
@@ -651,7 +739,7 @@ namespace core {
 
 
     const auto a = row3sum * row5sum - row4sum * row4sum;
-    const auto b = -a3 * row4sum -a5 * row3sum + 2 * row3sum * row5sum * pkndot + 2 * a4 * row4sum - 2 * pkndot * row4sum * row4sum;
+    const auto b = -a3 * row5sum -a5 * row3sum + 2 * row3sum * row5sum * pkndot + 2 * a4 * row4sum - 2 * pkndot * row4sum * row4sum;
     const auto c = a3 * a5 - a3 * pkndot * row5sum - a5 * pkndot * row3sum + row5sum * row3sum * pkndot * pkndot - a4 * a4 + 2 * a4 * pkndot * row4sum - pkndot * pkndot * row4sum * row4sum - rat;
 
 
@@ -666,7 +754,8 @@ namespace core {
     else {
       const auto t1 = (- b + sqrt(determinant)) / (2 * a);
       const auto t2 = (- b - sqrt(determinant)) / (2 * a);
-      t = std::min(t1,t2);
+      t = chose_max ? std::max(t1,t2) : std::min(t1, t2);
+      t = std::max(t1,t2);
     }
 
     return p_k + normal * t;

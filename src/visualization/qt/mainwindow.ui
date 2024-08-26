@@ -331,6 +331,19 @@
      <string>Load model</string>
     </property>
    </widget>
+   <widget class="QCheckBox" name="vertexIdsCheckBox">
+    <property name="geometry">
+     <rect>
+      <x>380</x>
+      <y>590</y>
+      <width>85</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Vertex ids</string>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
@@ -338,7 +351,7 @@
      <x>0</x>
      <y>0</y>
      <width>1131</width>
-     <height>37</height>
+     <height>24</height>
     </rect>
    </property>
   </widget>

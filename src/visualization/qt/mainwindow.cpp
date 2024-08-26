@@ -8,72 +8,88 @@
 #include <QtCore/qobject.h>
 #include <QtCore/qstring.h>
 #include <QtCore/qvariant.h>
+#include <QtWidgets/qprogressbar.h>
 #include <QtWidgets/qpushbutton.h>
 #include <QtWidgets/qradiobutton.h>
 #include <QtWidgets/qspinbox.h>
 #include <memory>
+
+QProgressBar *MainWindow::mainProgressBar = nullptr;
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    QObject::connect(ui->yawplus, &QPushButton::pressed, this, &MainWindow::yawPlus);
-    QObject::connect(ui->yawminus, &QPushButton::pressed, this, &MainWindow::yawMinus);
-    QObject::connect(ui->pitchplus, &QPushButton::pressed, this, &MainWindow::pitchPlus);
-    QObject::connect(ui->pitchminus, &QPushButton::pressed, this, &MainWindow::pitchMinus);
-    QObject::connect(ui->rollplus, &QPushButton::pressed, this, &MainWindow::rollPlus);
-    QObject::connect(ui->rollminus, &QPushButton::pressed, this, &MainWindow::rollMinus);
-    QObject::connect(ui->highlightEdgesCheckBox, qOverload<int>(&QCheckBox::stateChanged), this, &MainWindow::setHighlightEdges);
 
-    QObject::connect(ui->subdivisionCountBox, qOverload<int>(&QSpinBox::valueChanged), this, &MainWindow::setDFSubdivisionCount);
-    QObject::connect(ui->iterationCountBox, qOverload<int>(&QSpinBox::valueChanged), this, &MainWindow::setDFIterationCount);
-    QObject::connect(ui->executeButton, &QPushButton::pressed, this, &MainWindow::performMethod);
-    QObject::connect(ui->subdivideButton, &QPushButton::pressed, this, &MainWindow::performSubdivision);
-    QObject::connect(ui->resetModelButton, &QPushButton::pressed, this, &MainWindow::resetModel);
-    QObject::connect(ui->logAlphaSpinBox, qOverload<double>(&QDoubleSpinBox::valueChanged), this, &MainWindow::setLogAestheticAlpha);
-    QObject::connect(ui->loadModelPushButton, &QPushButton::pressed, this, &MainWindow::loadModel);
+    MainWindow::mainProgressBar = ui->algProgressBar;
+
+    connectSignalsAndSlots();
 
 
-    ui->logAlphaSpinBox->setMinimum(-5);
-    ui->logAlphaSpinBox->setMaximum(5);
-    ui->logAlphaSpinBox->setSingleStep(0.5);
-    ui->logAlphaSpinBox->setValue(common::settings::log_aesthetic_alpha);
-
-    const auto file_options = object_loader.loadFileOptions();
-
-    size_t tmpi = 0;
-    for (const auto& file_option : file_options) {
-      ui->modelSelectionComboBox->addItem(QString::fromStdString(file_option), QVariant((int)tmpi++));
-      if (file_option == "./deformed_ico.obj") {
-	ui->modelSelectionComboBox->setCurrentIndex(tmpi-1);
-      }
-    }
-
-    ui->algSelectorComboBox->addItem(QString::fromStdString(common::settings::alg_name.at(common::settings::BASIC)), QVariant((int)common::settings::BASIC));
-    ui->algSelectorComboBox->addItem(QString::fromStdString(common::settings::alg_name.at(common::settings::BEZIER)), QVariant((int)common::settings::BEZIER));
-    ui->algSelectorComboBox->addItem(QString::fromStdString(common::settings::alg_name.at(common::settings::LOG_AESTHETIC)), QVariant((int)common::settings::LOG_AESTHETIC));
-
-    QObject::connect(ui->modelSelectionComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &MainWindow::changeLoadedModel);
-    QObject::connect(ui->algSelectorComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &MainWindow::changeAlgorithm);
-
-    
-    QObject::connect(ui->radioButton, qOverload<bool>(&QRadioButton::toggled), this, &MainWindow::changeMeshSlot);
-    
-    changeAlgorithm(0);
+    initWidgets();
 
 
-    ui->radioButton->setChecked(true);
-    ui->subdivisionCountBox->setValue(1);
-    ui->iterationCountBox->setValue(1);
-    ui->highlightEdgesCheckBox->setChecked(true);
-    
     loadModel();
 }
 
 MainWindow::~MainWindow()
 {
-    delete ui;
+  delete ui;
+}
+
+void MainWindow::connectSignalsAndSlots()
+{
+  QObject::connect(ui->modelSelectionComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &MainWindow::changeLoadedModel);
+  QObject::connect(ui->algSelectorComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &MainWindow::changeAlgorithm);
+  QObject::connect(ui->loadModelPushButton, &QPushButton::pressed, this, &MainWindow::loadModel);
+  QObject::connect(ui->logAlphaSpinBox, qOverload<double>(&QDoubleSpinBox::valueChanged), this, &MainWindow::setLogAestheticAlpha);
+  QObject::connect(ui->radioButton, qOverload<bool>(&QRadioButton::toggled), this, &MainWindow::changeMeshSlot);
+  QObject::connect(ui->yawplus, &QPushButton::pressed, this, &MainWindow::yawPlus);
+  QObject::connect(ui->yawminus, &QPushButton::pressed, this, &MainWindow::yawMinus);
+  QObject::connect(ui->pitchplus, &QPushButton::pressed, this, &MainWindow::pitchPlus);
+  QObject::connect(ui->pitchminus, &QPushButton::pressed, this, &MainWindow::pitchMinus);
+  QObject::connect(ui->rollplus, &QPushButton::pressed, this, &MainWindow::rollPlus);
+  QObject::connect(ui->rollminus, &QPushButton::pressed, this, &MainWindow::rollMinus);
+  QObject::connect(ui->highlightEdgesCheckBox, qOverload<int>(&QCheckBox::stateChanged), this, &MainWindow::setHighlightEdges);
+  QObject::connect(ui->subdivisionCountBox, qOverload<int>(&QSpinBox::valueChanged), this, &MainWindow::setDFSubdivisionCount);
+  QObject::connect(ui->iterationCountBox, qOverload<int>(&QSpinBox::valueChanged), this, &MainWindow::setDFIterationCount);
+  QObject::connect(ui->executeButton, &QPushButton::pressed, this, &MainWindow::performMethod);
+  QObject::connect(ui->subdivideButton, &QPushButton::pressed, this, &MainWindow::performSubdivision);
+  QObject::connect(ui->resetModelButton, &QPushButton::pressed, this, &MainWindow::resetModel);
+  QObject::connect(ui->vertexIdsCheckBox, qOverload<int>(&QCheckBox::stateChanged), this, &MainWindow::setShowVertexIds);
+}
+
+void MainWindow::initWidgets()
+{
+  ui->logAlphaSpinBox->setMinimum(-5);
+  ui->logAlphaSpinBox->setMaximum(5);
+  ui->logAlphaSpinBox->setSingleStep(0.5);
+  ui->logAlphaSpinBox->setValue(common::settings::log_aesthetic_alpha);
+
+  const auto file_options = object_loader.loadFileOptions();
+
+  size_t tmpi = 0;
+  for (const auto& file_option : file_options) {
+    ui->modelSelectionComboBox->addItem(QString::fromStdString(file_option), QVariant((int)tmpi++));
+    if (file_option == "./deformed_ico.obj") {
+      ui->modelSelectionComboBox->setCurrentIndex(tmpi-1);
+    }
+  }
+
+  ui->algSelectorComboBox->addItem(QString::fromStdString(common::settings::alg_name.at(common::settings::BASIC)), QVariant((int)common::settings::BASIC));
+  ui->algSelectorComboBox->addItem(QString::fromStdString(common::settings::alg_name.at(common::settings::BEZIER)), QVariant((int)common::settings::BEZIER));
+  ui->algSelectorComboBox->addItem(QString::fromStdString(common::settings::alg_name.at(common::settings::LOG_AESTHETIC)), QVariant((int)common::settings::LOG_AESTHETIC));
+    
+  ui->radioButton->setChecked(true);
+  ui->subdivisionCountBox->setValue(1);
+  ui->iterationCountBox->setValue(1);
+  ui->highlightEdgesCheckBox->setChecked(true);
+  ui->algProgressBar->setValue(0);
+  ui->vertexIdsCheckBox->setChecked(common::settings::show_vertex_ids);
+
+
+  changeAlgorithm(0);
 }
 
 void MainWindow::yawPlus()
@@ -124,7 +140,6 @@ void MainWindow::setHighlightEdges(int status)
 void MainWindow::loadModel()
 {
   *m_mesh = object_loader.loadFromFile( ui->modelSelectionComboBox->currentIndex());
-  //*m_loaded_mesh = std::make_shared<common::MyMesh>(**m_mesh);
   ui->main_openGL_widget->setPrintable(*m_mesh);
   ui->main_openGL_widget->update();
 }
@@ -142,7 +157,7 @@ void MainWindow::resetModel()
 
 void MainWindow::performMethod()
 {
-  discrete_fairer.execute(**m_mesh, df_iteration_count);
+  discrete_fairer.execute(**m_mesh, df_iteration_count, [this](int v){this->cbSliceBarProgressed(v);});
   ui->main_openGL_widget->update();
 }
 
@@ -171,11 +186,9 @@ void MainWindow::changeMeshSlot(bool index)
 {
   if (index) {
     m_mesh = &m_mesh_a;
-    //m_loaded_mesh = &m_loaded_mesh_a;
   }
   else {
     m_mesh = &m_mesh_b;
-    //m_loaded_mesh = &m_loaded_mesh_b;
   }
 
   ui->main_openGL_widget->setPrintable(*m_mesh);
@@ -190,7 +203,17 @@ void MainWindow::setLogAestheticAlpha(double v)
 void MainWindow::changeLoadedModel(int index)
 {
   *m_mesh = object_loader.loadFromFile(index);
-  //*m_loaded_mesh = std::make_shared<common::MyMesh>(**m_mesh);
   ui->main_openGL_widget->setPrintable(*m_mesh);
+  ui->main_openGL_widget->update();
+}
+
+void MainWindow::cbSliceBarProgressed(int val)
+{
+  (MainWindow::mainProgressBar)->setValue(val);
+}
+
+void MainWindow::setShowVertexIds(int status)
+{
+  common::settings::show_vertex_ids = static_cast<bool>(status);
   ui->main_openGL_widget->update();
 }

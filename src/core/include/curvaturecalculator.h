@@ -49,6 +49,9 @@ namespace core
       void tessellateSurface(const size_t resolution, DerResults Ss) const;
 
 
+      
+      Eigen::Matrix2d getShapeOperator() const;
+
     public:
         struct FundamentalElements
         {
@@ -61,12 +64,24 @@ namespace core
             double N = 0;
         };
 
+      struct PrincipleCurvatures
+      {
+	bool umbolic;
+	Eigen::Vector3d max_dir;
+	Eigen::Vector3d min_dir;
+	double max_val;
+	double min_val;
+      };
+
+      PrincipleCurvatures getPrincipleCurvatures() const;
+
+      
+      
         FundamentalElements getFundamentalElements() const;
         Eigen::Vector3d getNormal() const;
       //TODO: rename to mean curvature 
         double getMeanCurvature() const;
         double getGaussianCurvature() const;
-        double getMaxPrincipleCurvature() const;
 
 
         void execute(common::MyMesh::VertexHandle &vh);

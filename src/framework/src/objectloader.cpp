@@ -121,6 +121,9 @@ std::shared_ptr<common::MyMesh> ObjectLoader::loadFromFile(const std::string& pa
 
 std::shared_ptr<common::MyMesh> ObjectLoader::loadFromFile(const size_t file_option_index) const
 {
+  if (file_options.size() <= file_option_index) {
+    return nullptr;
+  }
   return loadFromFile(file_options[file_option_index]);
 }
 
