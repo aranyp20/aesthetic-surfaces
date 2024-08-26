@@ -435,7 +435,6 @@ namespace core {
 
   double calcSignedGaussianCurvature(const CurvatureCalculator& cc)
   {
-    return cc.getGaussianCurvature();
     const auto principle_curvatures = cc.getPrincipleCurvatures();
     const auto chosen_curvature (std::fabs(principle_curvatures.min_val) > std::fabs(principle_curvatures.max_val) ? principle_curvatures.min_val : principle_curvatures.max_val);
     return chosen_curvature < 0 ? -std::fabs(cc.getGaussianCurvature()) : std::fabs(cc.getGaussianCurvature());
@@ -454,12 +453,12 @@ namespace core {
     extended_vertex_static_infos = generateExtendedVertexSaticInfos(mesh, mesh.children_parents_map); //todo ezt mindig ujra kell generalni?
 
 
-    CurvatureCalculator cc(mesh);
+    CurvatureCalculator cc(mesh, true);
 
     for(common::MyMesh::VertexHandle vert : mesh.vertices()) {
       if(extended_vertex_static_infos.at(vert).is_original_vertex) {
 	cc.execute(vert);
-	vertex_curvature_map.insert({vert, calcSignedGaussianCurvature(cc)});
+	vertex_curvature_map[vert] =  calcSignedGaussianCurvature(cc);
       }
     }
     /*
@@ -504,7 +503,7 @@ namespace core {
       if(std::find(av.begin(), av.end(),vh.idx()) == av.end()) {
 	//continue;
       }
-      CurvatureCalculator cc2(mesh);
+      CurvatureCalculator cc2(mesh, true);
       cc2.execute(vh);
       //std::cout << cc2.getGaussianCurvature() << std::endl;
       mesh.property(demo_color, vh) = cc2.getGaussianCurvature();
@@ -586,7 +585,7 @@ namespace core {
 
   void DiscreteFairer::execute(common::MyMesh& mesh, size_t iteration_count, std::function<void(int)> cb)
   {
-    //return triangleGaussExecuteDemo(mesh);
+    return triangleGaussExecuteDemo(mesh);
 
     
     if (mesh.n_vertices() == 3 && false) {
@@ -615,6 +614,7 @@ namespace core {
 	auto vh = *v_it;
 	if(extended_vertex_static_infos.at(vh).is_original_vertex){
 	  mcc.execute(vh);
+	  std::cout << mcc.getGaussianCurvature() << std::endl;
 	  vertex_curvature_map[vh] =  mcc.getGaussianCurvature();
 	  //std::cout<<"Curvature: "<< curvature<<std::endl;
 	}
@@ -702,7 +702,7 @@ namespace core {
     bool chose_max = true;
     if (H < 0) {
       chose_max = !chose_max;
-      //H *= -1;
+      H *= -1;
     }
 
 
@@ -755,7 +755,7 @@ namespace core {
       const auto t1 = (- b + sqrt(determinant)) / (2 * a);
       const auto t2 = (- b - sqrt(determinant)) / (2 * a);
       t = chose_max ? std::max(t1,t2) : std::min(t1, t2);
-      t = std::max(t1,t2);
+      //t = std::min(t1,t2);
     }
 
     return p_k + normal * t;
