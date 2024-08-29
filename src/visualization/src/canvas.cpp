@@ -218,13 +218,13 @@ std::vector<Canvas::qGlVertex> Canvas::printableFaceToTriangles(const common::My
       OpenMesh::VPropHandleT<double> myprop;
       if(printable_mesh->get_property_handle(myprop, "demo_color")){
 	color = printable_mesh->property(myprop, vh);
-	has_curvature = true;
+	//has_curvature = true;
       }
 	 
 
           
-      //const auto rgb_curvature = has_curvature ? common::color::hsvToRgb({color / hue_divider + hue_offset, 1.0, 1.0}) : Eigen::Vector3d(1.0, 0.0, 0.0);
-      const auto rgb_curvature = has_curvature ? common::color::hsvToRgb({color / max_color_val, 1.0, 1.0}) : Eigen::Vector3d(1.0, 0.0, 0.0);
+      const auto rgb_curvature = has_curvature ? common::color::hsvToRgb({color / hue_divider + hue_offset, 1.0, 1.0}) : Eigen::Vector3d(1.0, 0.0, 0.0);
+      //const auto rgb_curvature = has_curvature ? common::color::hsvToRgb({color / max_color_val, 1.0, 1.0}) : Eigen::Vector3d(1.0, 0.0, 0.0);
 
       retval.push_back({{vertex_position[0], vertex_position[1], vertex_position[2]}, {static_cast<float>(rgb_curvature[0]), static_cast<float>(rgb_curvature[1]), static_cast<float>(rgb_curvature[2])}});
   }

@@ -255,7 +255,7 @@ namespace core {
       const auto& fe = cc.getFundamentalElements();
 
       const auto H = calcTargetCurvature(extended_vertex_static_info.weighed_effectors);
-
+      
       const auto Qm = mesh.point(iteratable);
       const Eigen::Vector3d Q(Qm[0], Qm[1], Qm[2]);
       auto dnp = DiscreteFairer::Q_Gaussian(e_neighbors, normal, H, fe, Q, cc.getLastM());
@@ -435,13 +435,23 @@ namespace core {
 
   double calcSignedGaussianCurvature(const CurvatureCalculator& cc)
   {
+
+    
     const auto principle_curvatures = cc.getPrincipleCurvatures();
-    const auto chosen_curvature (std::fabs(principle_curvatures.min_val) > std::fabs(principle_curvatures.max_val) ? principle_curvatures.min_val : principle_curvatures.max_val);
-    return chosen_curvature < 0 ? -std::fabs(cc.getGaussianCurvature()) : std::fabs(cc.getGaussianCurvature());
+    //const auto chosen_curvature (std::fabs(principle_curvatures.min_val) < std::fabs(principle_curvatures.max_val) ? principle_curvatures.min_val : principle_curvatures.max_val);
+    //return chosen_curvature < 0 ? -std::fabs(cc.getGaussianCurvature()) : std::fabs(cc.getGaussianCurvature());
+    if(cc.getGaussianCurvature() > 0) {
+      return principle_curvatures.min_val < 0 ? -cc.getGaussianCurvature() : cc.getGaussianCurvature();
+    }
+
+    
+    return std::fabs(std::max(principle_curvatures.min_val, principle_curvatures.max_val));
   }
 
   void DiscreteFairer::triangleGaussExecuteDemo(common::MyMesh& mesh)
   {
+
+    
     /*
     static bool was_init = false;
     if(!was_init) {
@@ -454,7 +464,7 @@ namespace core {
 
 
     CurvatureCalculator cc(mesh, true);
-
+    std::cout << "-----------" << std::endl;
     for(common::MyMesh::VertexHandle vert : mesh.vertices()) {
       if(extended_vertex_static_infos.at(vert).is_original_vertex) {
 	cc.execute(vert);
@@ -474,7 +484,7 @@ namespace core {
     */
 
     std::vector<int> av{102, 24, 100, 105, 43, 42, 41, 29, 41, 16, 108, 76, 71, 6, 10, 11};
-
+    //std::vector<int> av{8};
     std::vector<std::pair<common::MyMesh::VertexHandle, Eigen::Vector3d>> new_vertex_positions;
     for(common::MyMesh::VertexIter v_it = mesh.vertices_begin(); v_it != mesh.vertices_end(); ++v_it){
       auto vh = *v_it;
@@ -505,7 +515,7 @@ namespace core {
       }
       CurvatureCalculator cc2(mesh, true);
       cc2.execute(vh);
-      //std::cout << cc2.getGaussianCurvature() << std::endl;
+      //std::cout <<"res: "<< cc2.getGaussianCurvature() << std::endl;
       mesh.property(demo_color, vh) = cc2.getGaussianCurvature();
     }
   }
@@ -697,7 +707,7 @@ namespace core {
 
 
 
-    Eigen::Vector3d DiscreteFairer::Q_Gaussian(const std::vector<Eigen::Vector3d>& p,const Eigen::Vector3d& normal, double H,  const CurvatureCalculator::FundamentalElements& fe, const Eigen::Vector3d& Q, const Eigen::Matrix<double, 5 , 6>& M)
+  Eigen::Vector3d DiscreteFairer::Q_Gaussian(const std::vector<Eigen::Vector3d>& p,const Eigen::Vector3d& normal, double H,  const CurvatureCalculator::FundamentalElements& fe, const Eigen::Vector3d& Q, const Eigen::Matrix<double, 5 , Eigen::Dynamic>& M)
   {
     bool chose_max = true;
     if (H < 0) {
@@ -707,33 +717,31 @@ namespace core {
 
 
     const auto p_k = common::average(p);
+    const auto neighbour_count = p.size();
 
 
     const double row3sum = M.row(2).sum();
     const double row4sum = M.row(3).sum();
     const double row5sum = M.row(4).sum();
 
-
     Eigen::RowVectorXd row3 = M.row(2);
     double a3 = 0.0;
-    for(size_t i = 0; i< 6; i++) {
+    for(size_t i = 0; i< neighbour_count; i++) {
       a3 += (row3(i) * p[i]).dot(normal);
     }
 
     Eigen::RowVectorXd row4 = M.row(3);
     double a4 = 0.0;
-    for(size_t i = 0; i< 6; i++) {
+    for(size_t i = 0; i< neighbour_count; i++) {
       a4 += (row4(i) * p[i]).dot(normal);
     }
 
     Eigen::RowVectorXd row5 = M.row(4);
     double a5 = 0.0;
-    for(size_t i = 0; i< 6; i++) {
+    for(size_t i = 0; i< neighbour_count; i++) {
       a5 += (row5(i) * p[i]).dot(normal);
     }
-
     const auto rat = H * (fe.E * fe.G - fe.F * fe.F);
-
 
     const auto pkndot = p_k.dot(normal);
 
@@ -747,6 +755,8 @@ namespace core {
     
     const auto determinant = b * b - 4 * a * c;
     if (determinant < 0) {
+      std::cout << "Gaussian Q det error." << std::endl;
+      return Q;
     }
     else if (determinant < 0.001) {
       t = - b / (2 * a);
