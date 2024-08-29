@@ -27,8 +27,13 @@ public:
 
   void sortEffectors(const common::MyMesh& mesh, std::vector<common::MyMesh::VertexHandle>& effectors) const;
 
-  
-  double calcTargetCurvature(const std::vector<std::pair<common::MyMesh::VertexHandle, double>>& weighed_effectors) const;
+  struct TargetCurvature
+  {
+    double main = 0;
+    double k_max = 0;
+    double k_min = 0;
+  };
+  TargetCurvature calcTargetCurvature(const std::vector<std::pair<common::MyMesh::VertexHandle, double>>& weighed_effectors) const;
 
   void triangleExecuteDemo(common::MyMesh& mesh);
   void pentaExecuteDemo(common::MyMesh& mesh);
@@ -65,7 +70,7 @@ static Eigen::Vector3d Q(const std::array<Eigen::Vector3d, 6>& p,
 
 
    static Eigen::Vector3d Q_Gaussian(const std::vector<Eigen::Vector3d>& p,
-			 const Eigen::Vector3d& normal, double H, const CurvatureCalculator::FundamentalElements& fe,
+			 const Eigen::Vector3d& normal, TargetCurvature H, const CurvatureCalculator::FundamentalElements& fe,
 				     const Eigen::Vector3d& Q, const Eigen::Matrix<double, 5, Eigen::Dynamic>& M);
 
 public:

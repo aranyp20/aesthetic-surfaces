@@ -364,7 +364,8 @@ namespace core {
       for (auto vh : mesh.vertices()) {
 	if (!static_info.at(vh).is_original_vertex) {
 	  //std::cout<<calcTargetCurvature(static_info.at(vh).weighed_effectors)<<std::endl;
-	  mesh.property(demo_color, vh) = calcTargetCurvature(static_info.at(vh).weighed_effectors);
+	  throw std::runtime_error("not implemented");
+	  //mesh.property(demo_color, vh) = calcTargetCurvature(static_info.at(vh).weighed_effectors);
 	}
       }
 
@@ -424,8 +425,8 @@ namespace core {
 
 	
 	if (!static_info.at(vh).is_original_vertex) {
-	  
-	  mesh.property(demo_color, vh) = calcTargetCurvature(static_info.at(vh).weighed_effectors);
+	  throw std::runtime_error("not implemented");
+	  //mesh.property(demo_color, vh) = calcTargetCurvature(static_info.at(vh).weighed_effectors);
 	}
       }
 
@@ -445,7 +446,7 @@ namespace core {
     }
 
     
-    return std::fabs(std::max(principle_curvatures.min_val, principle_curvatures.max_val));
+    return cc.getGaussianCurvature();
   }
 
   void DiscreteFairer::triangleGaussExecuteDemo(common::MyMesh& mesh)
@@ -520,41 +521,39 @@ namespace core {
     }
   }
   
-  double DiscreteFairer::calcTargetCurvature(const std::vector<std::pair<common::MyMesh::VertexHandle, double>>& weighed_effectors) const
+  DiscreteFairer::TargetCurvature DiscreteFairer::calcTargetCurvature(const std::vector<std::pair<common::MyMesh::VertexHandle, double>>& weighed_effectors) const
   {
 
+    TargetCurvature retval;
     switch(common::settings::selected_alg) {      
     case common::settings::Algorithm::BASIC: {
-	double H = 0.0;
 	for(const auto& weighed_effector : weighed_effectors) {
-	  H += vertex_curvature_map.at(weighed_effector.first) * weighed_effector.second;
+	  retval.main += vertex_curvature_map.at(weighed_effector.first) * weighed_effector.second;
 	}
-	return H;
+	return retval;
       }
       //////////////
     case common::settings::Algorithm::BEZIER: {
-	double H = 0.0;
 	double bern_sum = 0.0;
 	for(const auto& weighed_effector : weighed_effectors) {
 	  bern_sum += bernstein_interpol(weighed_effector.second);
 	}
 	//bern_sum = 3.0/2.0; TODO
 	for(const auto& weighed_effector : weighed_effectors) {
-	  H += vertex_curvature_map.at(weighed_effector.first) * (bernstein_interpol(weighed_effector.second)/bern_sum);
+	  retval.main += vertex_curvature_map.at(weighed_effector.first) * (bernstein_interpol(weighed_effector.second)/bern_sum);
 	}
-	return H;
+	return retval;
       }
 
     case common::settings::Algorithm::LOG_AESTHETIC: {
-	double H = 0.0;
 	const auto alpha = common::settings::log_aesthetic_alpha;
 	for(const auto& weighed_effector : weighed_effectors) {
-	  H += std::pow(vertex_curvature_map.at(weighed_effector.first),-alpha) * weighed_effector.second;
+	  retval.main += std::pow(vertex_curvature_map.at(weighed_effector.first),-alpha) * weighed_effector.second;
 	}
 	
 	
-	return std::pow(H, -1.0 / alpha);
-	return H;
+	retval.main = std::pow(retval.main, -1.0 / alpha);
+	return retval;
       }
     }
       
@@ -707,12 +706,12 @@ namespace core {
 
 
 
-  Eigen::Vector3d DiscreteFairer::Q_Gaussian(const std::vector<Eigen::Vector3d>& p,const Eigen::Vector3d& normal, double H,  const CurvatureCalculator::FundamentalElements& fe, const Eigen::Vector3d& Q, const Eigen::Matrix<double, 5 , Eigen::Dynamic>& M)
+  Eigen::Vector3d DiscreteFairer::Q_Gaussian(const std::vector<Eigen::Vector3d>& p,const Eigen::Vector3d& normal, TargetCurvature H,  const CurvatureCalculator::FundamentalElements& fe, const Eigen::Vector3d& Q, const Eigen::Matrix<double, 5 , Eigen::Dynamic>& M)
   {
     bool chose_max = true;
-    if (H < 0) {
+    if (H.main < 0) {
       chose_max = !chose_max;
-      H *= -1;
+      H.main *= -1;
     }
 
 
@@ -741,7 +740,7 @@ namespace core {
     for(size_t i = 0; i< neighbour_count; i++) {
       a5 += (row5(i) * p[i]).dot(normal);
     }
-    const auto rat = H * (fe.E * fe.G - fe.F * fe.F);
+    const auto rat = H.main * (fe.E * fe.G - fe.F * fe.F);
 
     const auto pkndot = p_k.dot(normal);
 

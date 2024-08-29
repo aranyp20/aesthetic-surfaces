@@ -48,7 +48,8 @@ namespace metrics {
       }
       VertexRecord vr;
       vr.vh_idx = vh.idx();
-      vr.target_curvature = m_df.calcTargetCurvature(m_df.extended_vertex_static_infos.at(vh).weighed_effectors);
+      throw std::runtime_error("not implemented");
+      //vr.target_curvature = m_df.calcTargetCurvature(m_df.extended_vertex_static_infos.at(vh).weighed_effectors);
       cc_mirror.execute(vh);
       vr.real_curvature = cc_mirror.getMeanCurvature();
       data_frame.push_back(vr);
