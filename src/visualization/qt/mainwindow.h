@@ -74,6 +74,8 @@ public slots:
   void setDFSubdivisionCount(int n);
   void setDFIterationCount(int n);
   void setLogAestheticAlpha(double);
+  void exportModel();
+  void changeCurvatureType(int index);
 
 };
 #endif // MAINWINDOW_H

@@ -57,6 +57,9 @@ public:
 
   void iterateVerticesAsync(common::MyMesh& mesh);
   void iterateVerticesSync(common::MyMesh& mesh);
+
+
+  double getCurvature(const CurvatureCalculator& cc) const;
   
 //TODO replace
 static Eigen::Vector3d Q(const std::array<Eigen::Vector3d, 6>& p,
@@ -72,7 +75,6 @@ static Eigen::Vector3d Q(const std::array<Eigen::Vector3d, 6>& p,
    static Eigen::Vector3d Q_Gaussian(const std::vector<Eigen::Vector3d>& p,
 			 const Eigen::Vector3d& normal, TargetCurvature H, const CurvatureCalculator::FundamentalElements& fe,
 				     const Eigen::Vector3d& Q, const Eigen::Matrix<double, 5, Eigen::Dynamic>& M);
-
 public:
 
   void execute(common::MyMesh& mesh, size_t iteration_count, std::function<void(int)> cb);

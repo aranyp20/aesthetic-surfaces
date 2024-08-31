@@ -258,9 +258,15 @@ namespace core {
       
       const auto Qm = mesh.point(iteratable);
       const Eigen::Vector3d Q(Qm[0], Qm[1], Qm[2]);
-      auto dnp = DiscreteFairer::Q_Gaussian(e_neighbors, normal, H, fe, Q, cc.getLastM());
-      return dnp;
-  
+
+      Eigen::Vector3d new_pos;
+      if(common::settings::selected_curvature == common::settings::GAUSSIAN) {
+	new_pos = DiscreteFairer::Q_Gaussian(e_neighbors, normal, H, fe, Q, cc.getLastM());
+      }
+      else if(common::settings::selected_curvature == common::settings::MEAN) {
+	new_pos = DiscreteFairer::Q2(e_neighbors, normal, H.main, fe, Q, cc.getLastM());
+      }
+      return new_pos;
     }
 
   std::map<common::MyMesh::VertexHandle, DiscreteFairer::ExtendedVertexStaticInfo> DiscreteFairer::generateExtendedVertexSaticInfos(common::MyMesh& mesh, const ChildrenParents& child_parents_map) const
@@ -594,7 +600,7 @@ namespace core {
 
   void DiscreteFairer::execute(common::MyMesh& mesh, size_t iteration_count, std::function<void(int)> cb)
   {
-    return triangleGaussExecuteDemo(mesh);
+    //return triangleGaussExecuteDemo(mesh);
 
     
     if (mesh.n_vertices() == 3 && false) {
@@ -623,9 +629,7 @@ namespace core {
 	auto vh = *v_it;
 	if(extended_vertex_static_infos.at(vh).is_original_vertex){
 	  mcc.execute(vh);
-	  std::cout << mcc.getGaussianCurvature() << std::endl;
-	  vertex_curvature_map[vh] =  mcc.getGaussianCurvature();
-	  //std::cout<<"Curvature: "<< curvature<<std::endl;
+	  vertex_curvature_map[vh] =  getCurvature(mcc);
 	}
       }
       //cb.postIteration();
@@ -651,7 +655,6 @@ namespace core {
 
     }
     //cb.endSession();
-    OpenMesh::IO::write_mesh(mesh, "result.obj");
 
 
 
@@ -770,6 +773,16 @@ namespace core {
     return p_k + normal * t;
   }
 
+  double DiscreteFairer::getCurvature(const CurvatureCalculator& cc) const
+  {
+    switch(common::settings::selected_curvature) {
+    case common::settings::MEAN:
+      return cc.getMeanCurvature();
+    case common::settings::GAUSSIAN:
+      return calcSignedGaussianCurvature(cc);
+    }
+  }
 
+  
 
 }

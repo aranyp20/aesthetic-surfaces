@@ -3,7 +3,7 @@
 #include "organize.hpp"
 #include "settings.h"
 #include "type_converter.h"
-#include <OpenGL/OpenGL.h>
+#include <OpenGL/gl.h>
 #include <QPainter>
 #include <QtCore/qnamespace.h>
 

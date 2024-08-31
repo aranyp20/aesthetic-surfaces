@@ -275,7 +275,7 @@
    <widget class="QComboBox" name="algSelectorComboBox">
     <property name="geometry">
      <rect>
-      <x>170</x>
+      <x>120</x>
       <y>610</y>
       <width>103</width>
       <height>32</height>
@@ -344,6 +344,29 @@
      <string>Vertex ids</string>
     </property>
    </widget>
+   <widget class="QComboBox" name="curvatureSelectorComboBox">
+    <property name="geometry">
+     <rect>
+      <x>220</x>
+      <y>610</y>
+      <width>103</width>
+      <height>32</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="exportModelPushButton">
+    <property name="geometry">
+     <rect>
+      <x>760</x>
+      <y>720</y>
+      <width>100</width>
+      <height>32</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Export model</string>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
@@ -351,7 +374,7 @@
      <x>0</x>
      <y>0</y>
      <width>1131</width>
-     <height>24</height>
+     <height>37</height>
     </rect>
    </property>
   </widget>

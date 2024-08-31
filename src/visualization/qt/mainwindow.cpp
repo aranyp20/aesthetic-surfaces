@@ -8,6 +8,7 @@
 #include <QtCore/qobject.h>
 #include <QtCore/qstring.h>
 #include <QtCore/qvariant.h>
+#include <QtWidgets/qcombobox.h>
 #include <QtWidgets/qprogressbar.h>
 #include <QtWidgets/qpushbutton.h>
 #include <QtWidgets/qradiobutton.h>
@@ -42,6 +43,8 @@ void MainWindow::connectSignalsAndSlots()
 {
   QObject::connect(ui->modelSelectionComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &MainWindow::changeLoadedModel);
   QObject::connect(ui->algSelectorComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &MainWindow::changeAlgorithm);
+  QObject::connect(ui->curvatureSelectorComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this, &MainWindow::changeCurvatureType);
+  QObject::connect(ui->exportModelPushButton, &QPushButton::pressed, this, &MainWindow::exportModel);
   QObject::connect(ui->loadModelPushButton, &QPushButton::pressed, this, &MainWindow::loadModel);
   QObject::connect(ui->logAlphaSpinBox, qOverload<double>(&QDoubleSpinBox::valueChanged), this, &MainWindow::setLogAestheticAlpha);
   QObject::connect(ui->radioButton, qOverload<bool>(&QRadioButton::toggled), this, &MainWindow::changeMeshSlot);
@@ -80,7 +83,12 @@ void MainWindow::initWidgets()
   ui->algSelectorComboBox->addItem(QString::fromStdString(common::settings::alg_name.at(common::settings::BASIC)), QVariant((int)common::settings::BASIC));
   ui->algSelectorComboBox->addItem(QString::fromStdString(common::settings::alg_name.at(common::settings::BEZIER)), QVariant((int)common::settings::BEZIER));
   ui->algSelectorComboBox->addItem(QString::fromStdString(common::settings::alg_name.at(common::settings::LOG_AESTHETIC)), QVariant((int)common::settings::LOG_AESTHETIC));
-    
+
+  ui->curvatureSelectorComboBox->addItem(QString::fromStdString(common::settings::curvature_name.at(common::settings::MEAN)), QVariant((int)common::settings::MEAN));
+  ui->curvatureSelectorComboBox->addItem(QString::fromStdString(common::settings::curvature_name.at(common::settings::GAUSSIAN)), QVariant((int)common::settings::GAUSSIAN));
+
+  ui->curvatureSelectorComboBox->setCurrentIndex(common::settings::selected_curvature);
+  
   ui->radioButton->setChecked(true);
   ui->subdivisionCountBox->setValue(1);
   ui->iterationCountBox->setValue(1);
@@ -182,6 +190,11 @@ void MainWindow::changeAlgorithm(int n)
   common::settings::selected_alg = common::settings::Algorithm(n);
 }
 
+void MainWindow::changeCurvatureType(int n)
+{
+  common::settings::selected_curvature = common::settings::CurvatureType(n);
+}
+
 void MainWindow::changeMeshSlot(bool index)
 {
   if (index) {
@@ -216,4 +229,11 @@ void MainWindow::setShowVertexIds(int status)
 {
   common::settings::show_vertex_ids = static_cast<bool>(status);
   ui->main_openGL_widget->update();
+}
+
+void MainWindow::exportModel()
+{
+  if(*m_mesh){
+    OpenMesh::IO::write_mesh(**m_mesh, "./out/result_mesh.obj");
+  }
 }
