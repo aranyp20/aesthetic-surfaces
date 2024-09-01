@@ -98,6 +98,9 @@ void MainWindow::initWidgets()
 
 
   changeAlgorithm(0);
+
+  //ui->exportModelNameLineEdit->setPlaceholderText("filename.txt");
+
 }
 
 void MainWindow::yawPlus()
@@ -233,7 +236,17 @@ void MainWindow::setShowVertexIds(int status)
 
 void MainWindow::exportModel()
 {
-  if(*m_mesh){
-    OpenMesh::IO::write_mesh(**m_mesh, "./out/result_mesh.obj");
+  if(!*m_mesh) {
+    return;
   }
+
+  QString fileName = ui->exportModelNameLineEdit->text();
+
+  if(fileName.isEmpty()) {
+    fileName = "result_mesh";
+  }
+
+  OpenMesh::IO::write_mesh(**m_mesh, "./out/" + fileName.toStdString() + ".obj");
+
+  
 }

@@ -367,6 +367,16 @@
      <string>Export model</string>
     </property>
    </widget>
+   <widget class="QLineEdit" name="exportModelNameLineEdit">
+    <property name="geometry">
+     <rect>
+      <x>720</x>
+      <y>690</y>
+      <width>171</width>
+      <height>31</height>
+     </rect>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
