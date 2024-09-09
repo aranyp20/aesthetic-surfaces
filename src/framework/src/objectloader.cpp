@@ -1,6 +1,8 @@
 #include "objectloader.h"
+#include <algorithm>
 #include <iostream>
 #include <filesystem>
+#include <string>
 
 #include "common_defines.h"
 #include "discretefairer.h"
@@ -109,9 +111,14 @@ std::shared_ptr<common::MyMesh> ObjectLoader::loadFromFile(const std::string& pa
     
     for (const auto& entry : std::filesystem::directory_iterator("./")) {
       if (entry.path().extension() == ".obj" || entry.path().extension() == ".stl") {
-	retval.push_back(entry.path());
+	std::string path = entry.path();
+	path.erase(0, 2);
+	retval.push_back(path);
       }
     }
+
+    std::sort(retval.begin(), retval.end());
+    
 
     file_options = retval;
     return retval;

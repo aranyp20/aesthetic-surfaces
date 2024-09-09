@@ -87,6 +87,7 @@ namespace core {
 
     std::map<common::MyMesh::EdgeHandle, common::MyMesh::VertexHandle> halfpoint_map;
 
+
     for (const auto& original_edge : original_edges) {
       
       MyMesh::HalfedgeHandle heh = mesh.halfedge_handle(original_edge, 0);
@@ -100,6 +101,20 @@ namespace core {
       MyMesh::VertexHandle vnew = mesh.add_vertex(new_point);
       halfpoint_map[original_edge] = vnew;
       children_parents_map.insert({vnew, {v1, v2}});
+      mesh.edge_neighbor_map.insert({vnew, {v1, v2}});
+
+      if(mesh.edge_neighbor_map.count(v1) && mesh.edge_neighbor_map.at(v1)[0] == v2) {
+	mesh.edge_neighbor_map[v1][0] = vnew;
+      }
+      if(mesh.edge_neighbor_map.count(v1) && mesh.edge_neighbor_map.at(v1)[1] == v2) {
+	mesh.edge_neighbor_map[v1][1] = vnew;
+      }
+      if(mesh.edge_neighbor_map.count(v2) && mesh.edge_neighbor_map.at(v2)[0] == v1) {
+	mesh.edge_neighbor_map[v2][0] = vnew;
+      }
+      if(mesh.edge_neighbor_map.count(v2) && mesh.edge_neighbor_map.at(v2)[1] == v1) {
+	mesh.edge_neighbor_map[v2][1] = vnew;
+      }
     }
 
     std::vector<common::MyMesh::FaceHandle> original_faces;

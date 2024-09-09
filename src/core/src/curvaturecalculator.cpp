@@ -232,8 +232,6 @@ namespace core
     double CurvatureCalculator::getMeanCurvature() const
     {
       const auto& fe = fundamental_elements;
-      //std::cout << (fe.L * fe.G - fe.M * fe.F + fe.N * fe.E - fe.M * fe.F) / (2 * (fe.E * fe.G - fe.F * fe.F)) << std::endl;
-      //std::cout << getGaussianCurvature() << std::endl;
 
       return (fe.L * fe.G - fe.M * fe.F + fe.N * fe.E - fe.M * fe.F) / (2 * (fe.E * fe.G - fe.F * fe.F));
     }
@@ -242,7 +240,6 @@ namespace core
     {
       const auto& fe = fundamental_elements;
 
-      //return (fe.N * fe.E - 2 * fe.M * fe.F + fe.L * fe.G) / (fe.E * fe.G - fe.F * fe.F);
       return (fe.L * fe.N - fe.M * fe.M) / (fe.E * fe.G - fe.F * fe.F);
     }
 

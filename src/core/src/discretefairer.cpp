@@ -6,6 +6,7 @@
 #include "mainwindow.h"
 #include "mesh.h"
 #include "organize.hpp"
+#include <QtCore/qmetatype.h>
 #include <QtCore/qnamespace.h>
 #include <algorithm>
 #include <cstddef>
@@ -259,40 +260,54 @@ namespace core {
       const auto Qm = mesh.point(iteratable);
       const Eigen::Vector3d Q(Qm[0], Qm[1], Qm[2]);
 
-      Eigen::Vector3d new_pos;
+      
+
+      Eigen::Vector3d Q0;
+      
+      if(extended_vertex_static_info.weighed_effectors.size() == 2){
+	const auto edge_neighbors = mesh.edge_neighbor_map.at(iteratable);
+	Q0 = common::converter::meshPointToEigen((mesh.point(edge_neighbors[0]) + mesh.point(edge_neighbors[1]))/ 2);
+      } else {
+	Q0 = common::average(e_neighbors);
+      }
+
+      
+      Eigen::Vector3d new_pos = Q;
       if(common::settings::selected_curvature == common::settings::GAUSSIAN) {
-	new_pos = DiscreteFairer::Q_Gaussian(e_neighbors, normal, H, fe, Q, cc.getLastM());
+	new_pos = DiscreteFairer::Q_Gaussian(e_neighbors, normal, H, fe, Q, Q0, cc.getLastM());
       }
       else if(common::settings::selected_curvature == common::settings::MEAN) {
-	new_pos = DiscreteFairer::Q2(e_neighbors, normal, H.main, fe, Q, cc.getLastM());
+	if(iteratable.idx()==50 || true){
+	  new_pos = DiscreteFairer::Q2(e_neighbors, normal, H.main, fe, Q,Q0, cc.getLastM());
+	}
       }
       return new_pos;
     }
 
   std::map<common::MyMesh::VertexHandle, DiscreteFairer::ExtendedVertexStaticInfo> DiscreteFairer::generateExtendedVertexSaticInfos(common::MyMesh& mesh, const ChildrenParents& child_parents_map) const
-    {
-      std::map<common::MyMesh::VertexHandle, DiscreteFairer::ExtendedVertexStaticInfo> retval;
+  {
+    std::map<common::MyMesh::VertexHandle, DiscreteFairer::ExtendedVertexStaticInfo> retval;
 
-      CurvatureCalculator cc(mesh);
-
-      for (auto vh : mesh.vertices()) {
+    CurvatureCalculator cc(mesh);
+    
+    for (auto vh : mesh.vertices()) {
 	
-	DiscreteFairer::ExtendedVertexStaticInfo evsi;
-	const auto weighed_effectors = getWeighedEffectors(vh, child_parents_map, mesh);
-
-
-	evsi.is_original_vertex = weighed_effectors.size() < 2;
-
-	if (!evsi.is_original_vertex) {
-	  evsi.weighed_effectors = weighed_effectors;
-	}
-
-	
-	retval.insert({vh, evsi});
-      }
+      DiscreteFairer::ExtendedVertexStaticInfo evsi;
+      const auto weighed_effectors = getWeighedEffectors(vh, child_parents_map, mesh);
       
-      return retval;
+
+      evsi.is_original_vertex = weighed_effectors.size() < 2;
+	
+      if (!evsi.is_original_vertex) {
+	evsi.weighed_effectors = weighed_effectors;
+      }
+
+	
+      retval.insert({vh, evsi});
     }
+      
+    return retval;
+  }
 
   void DiscreteFairer::sortEffectors(const common::MyMesh& mesh, std::vector<common::MyMesh::VertexHandle>& effectors) const
   {
@@ -334,7 +349,7 @@ namespace core {
   {
       
       Subdivider subdivider;
-      subdivider.execute(mesh, 4);
+      subdivider.execute(mesh, 3);
       
       OpenMesh::VPropHandleT<double> demo_color;
       mesh.add_property(demo_color, "demo_color");
@@ -357,8 +372,8 @@ namespace core {
 	  }
 	case 2:
 	  {
-	    vertex_curvature_map[v] = 2.0;
-	    mesh.property(demo_color, v) = 2.0;
+	    vertex_curvature_map[v] = 20.0;
+	    mesh.property(demo_color, v) = 20.0;
 	    break;
 	  }
 	default:
@@ -368,9 +383,15 @@ namespace core {
       
 	
       for (auto vh : mesh.vertices()) {
-	if (!static_info.at(vh).is_original_vertex) {
-	  //std::cout<<calcTargetCurvature(static_info.at(vh).weighed_effectors)<<std::endl;
-	  throw std::runtime_error("not implemented");
+	if (!static_info.at(vh).is_original_vertex && vh.idx() == 10) {
+	  std::cout<<"ll: "<<calcTargetCurvature(static_info.at(vh).weighed_effectors).main<<std::endl;
+	  const auto new_pos = iterateVertex(mesh, vh, static_info.at(vh));
+	  common::MyMesh::Point new_posa(new_pos[0], new_pos[1], new_pos[2]);
+	  mesh.point(vh) = new_posa;
+	  CurvatureCalculator cc(mesh);
+	  cc.execute(vh);
+	  std::cout << "xx: "<<cc.getMeanCurvature() << std::endl;
+	  //throw std::runtime_error("not implemented");
 	  //mesh.property(demo_color, vh) = calcTargetCurvature(static_info.at(vh).weighed_effectors);
 	}
       }
@@ -452,7 +473,7 @@ namespace core {
     }
 
     
-    return cc.getGaussianCurvature();
+    return 0;
   }
 
   void DiscreteFairer::triangleGaussExecuteDemo(common::MyMesh& mesh)
@@ -581,7 +602,6 @@ namespace core {
       // TODO: conversion in common (new file for all of these)
       const auto& new_pos_e = vertex_with_new_pos.second;
       common::MyMesh::Point new_pos(new_pos_e[0], new_pos_e[1], new_pos_e[2]);
-	
       mesh.point(vertex_with_new_pos.first) = new_pos;
     }
   }
@@ -603,7 +623,7 @@ namespace core {
     //return triangleGaussExecuteDemo(mesh);
 
     
-    if (mesh.n_vertices() == 3 && false) {
+    if (mesh.n_vertices() == 3 ) {
       return triangleExecuteDemo(mesh);
     }
     if (mesh.n_vertices() == 5 && false) {
@@ -647,6 +667,8 @@ namespace core {
       for(auto vh : mesh.vertices()){
 	CurvatureCalculator cc(mesh);
 	cc.execute(vh);
+	std::cout << "exp: "<< calcTargetCurvature(extended_vertex_static_infos.at(vh).weighed_effectors).main << std::endl;
+	std::cout << "real: "<<cc.getMeanCurvature() << std::endl;
 	//mesh.property(demo_color, vh) = cc.getGaussianCurvature();
 
       }
@@ -676,11 +698,13 @@ namespace core {
   }
 
 
-  Eigen::Vector3d DiscreteFairer::Q2(const std::vector<Eigen::Vector3d>& p,const Eigen::Vector3d& normal, double H,  const CurvatureCalculator::FundamentalElements& fe, const Eigen::Vector3d& Q, const Eigen::Matrix<double, 5 , Eigen::Dynamic>& M)
+  Eigen::Vector3d DiscreteFairer::Q2(const std::vector<Eigen::Vector3d>& p,const Eigen::Vector3d& normal, double H,  const CurvatureCalculator::FundamentalElements& fe,
+				     const Eigen::Vector3d& Q, const Eigen::Vector3d& Q0,
+				     const Eigen::Matrix<double, 5 , Eigen::Dynamic>& M)
   {
 
-    const auto p_k = common::average(p);
-     const auto neighbour_count = p.size();
+    //const auto p_k = common::average(p);
+    const auto neighbour_count = p.size();
 
     Eigen::RowVectorXd row3 = M.row(2);
     double dotsum_m3 = 0.0;
@@ -700,8 +724,8 @@ namespace core {
       dotsum_m5 += (row5(i) * p[i]).dot(normal);
     }
 
-    const double t = (-2.0 * H*(fe.E * fe.G - fe.F * fe.F) + fe.E * dotsum_m5 - 2.0 * fe.F * dotsum_m4 + fe.G * dotsum_m3) / ((fe.E * M.row(4).sum())-2.0 * fe.F * M.row(3).sum() + fe.G * M.row(2).sum()) - p_k.dot(normal);
-    return p_k + normal * t;
+    const double t = (-2.0 * H*(fe.E * fe.G - fe.F * fe.F) + fe.E * dotsum_m5 - 2.0 * fe.F * dotsum_m4 + fe.G * dotsum_m3) / ((fe.E * M.row(4).sum())-2.0 * fe.F * M.row(3).sum() + fe.G * M.row(2).sum()) - Q0.dot(normal);
+    return Q0 + normal * t;
     
 
   }
@@ -709,7 +733,9 @@ namespace core {
 
 
 
-  Eigen::Vector3d DiscreteFairer::Q_Gaussian(const std::vector<Eigen::Vector3d>& p,const Eigen::Vector3d& normal, TargetCurvature H,  const CurvatureCalculator::FundamentalElements& fe, const Eigen::Vector3d& Q, const Eigen::Matrix<double, 5 , Eigen::Dynamic>& M)
+  Eigen::Vector3d DiscreteFairer::Q_Gaussian(const std::vector<Eigen::Vector3d>& p,const Eigen::Vector3d& normal, TargetCurvature H,  const CurvatureCalculator::FundamentalElements& fe,
+					     const Eigen::Vector3d& Q, const Eigen::Vector3d& Q0,
+					     const Eigen::Matrix<double, 5 , Eigen::Dynamic>& M)
   {
     bool chose_max = true;
     if (H.main < 0) {
@@ -718,7 +744,7 @@ namespace core {
     }
 
 
-    const auto p_k = common::average(p);
+    //const auto p_k = common::average(p);
     const auto neighbour_count = p.size();
 
 
@@ -745,7 +771,7 @@ namespace core {
     }
     const auto rat = H.main * (fe.E * fe.G - fe.F * fe.F);
 
-    const auto pkndot = p_k.dot(normal);
+    const auto pkndot = Q0.dot(normal);
 
 
     const auto a = row3sum * row5sum - row4sum * row4sum;
@@ -770,7 +796,7 @@ namespace core {
       //t = std::min(t1,t2);
     }
 
-    return p_k + normal * t;
+    return Q0 + normal * t;
   }
 
   double DiscreteFairer::getCurvature(const CurvatureCalculator& cc) const

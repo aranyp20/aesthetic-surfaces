@@ -58,6 +58,10 @@ src/common/include/organize.hpp
 src/core/src/discretefairer.cpp
 src/metrics/curvaturebased.cpp
 src/core/src/subdivider.cpp
+src/core/src/parametricsurface.cpp
+src/core/src/parametriclogaesthetic1.cpp
+src/core/src/parametric_spline_3d.cpp
+src/core/src/logaesthetic_spline.cpp
 dependencies/lsq-plane.cc
 )
 

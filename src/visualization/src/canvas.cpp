@@ -8,7 +8,7 @@
 #include <QtCore/qnamespace.h>
 
 
-
+//#define SPLINE_RENDER
 
 Canvas::Canvas(QWidget *parent) : QOpenGLWidget(parent)
 {
@@ -112,13 +112,13 @@ void Canvas::initializeGL()
 
 
 
-void Canvas::setPrintable(const std::shared_ptr<common::MyMesh> _printable_mesh)
+void Canvas::setPrintable(const std::shared_ptr<common::BaseMesh> _printable_mesh)
 {
   printable_mesh = _printable_mesh;
 }
 
 
-void Canvas::setCurvaturToHueAttributes(const common::MyMesh& mesh, double outlier)
+void Canvas::setCurvaturToHueAttributes(const common::BaseMesh& mesh, double outlier)
 {
   max_color_val = 0.0;
   std::vector<double> curvatures;
@@ -184,6 +184,12 @@ std::vector<Canvas::qGlVertex> Canvas::printableMeshToLines() const //edges
     common::MyMesh::VertexHandle v0 = mesh.from_vertex_handle(mesh.halfedge_handle(edge, 0));
     common::MyMesh::VertexHandle v1 = mesh.to_vertex_handle(mesh.halfedge_handle(edge, 0));
 
+    #ifdef SPLINE_RENDER
+    if(v0.idx()==0 || v1.idx()==0){
+      continue;
+    }
+    #endif
+    
     common::MyMesh::Point vertex_position1 = printable_mesh->point(v0);
     common::MyMesh::Point vertex_position2 = printable_mesh->point(v1);
 
@@ -300,7 +306,7 @@ void Canvas::paintGL()
         q_m(i, j) = static_cast<float>(m(i, j));
       }
     }
-    setCurvaturToHueAttributes(*printable_mesh, 1.0);
+    //setCurvaturToHueAttributes(*printable_mesh, 1.0);
     std::vector<qGlVertex> pp = printableMeshToTriangles();
 /*
     sp->bind();
@@ -364,6 +370,9 @@ void Canvas::paintGL()
     
     glBegin(GL_TRIANGLES);
     for(const auto& side : pp) {
+#ifdef SPLINE_RENDER
+      continue;
+#endif
       Eigen::Vector4d c_pos = p*v*m *  Eigen::Vector4d(side.position[0], side.position[1], side.position[2], 1.0);
       c_pos = c_pos/ c_pos[3];
       glColor3f(side.color[0], side.color[1], side.color[2]);

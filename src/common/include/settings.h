@@ -32,6 +32,6 @@ namespace common {
     inline Algorithm selected_alg = Algorithm::BASIC;
     inline CurvatureType selected_curvature = CurvatureType::MEAN;
     inline bool sync = false;
-    inline bool show_vertex_ids = true;
+    inline bool show_vertex_ids = false;
   }
 }

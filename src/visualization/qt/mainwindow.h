@@ -40,6 +40,7 @@ private:
 
   std::shared_ptr<common::MyMesh> m_mesh_b;
 
+  std::shared_ptr<common::BaseMesh> m_log_gen;
   
 
   framework::ObjectLoader object_loader;
@@ -76,6 +77,7 @@ public slots:
   void setLogAestheticAlpha(double);
   void exportModel();
   void changeCurvatureType(int index);
+  void generateLogAesthetic();
 
 };
 #endif // MAINWINDOW_H

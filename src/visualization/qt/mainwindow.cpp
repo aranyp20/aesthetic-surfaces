@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "common_defines.h"
+#include "mesh.h"
 #include "settings.h"
 #include "ui_mainwindow.h"
 
@@ -14,6 +15,8 @@
 #include <QtWidgets/qradiobutton.h>
 #include <QtWidgets/qspinbox.h>
 #include <memory>
+#include "parametriclogaesthetic1.h"
+#include "logaesthetic_spline.h"
 
 QProgressBar *MainWindow::mainProgressBar = nullptr;
 
@@ -23,6 +26,8 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
+    //ui->main_openGL_widget = ui->openGLWidget;
+    ui->openGLWidget = ui->main_openGL_widget;
     MainWindow::mainProgressBar = ui->algProgressBar;
 
     connectSignalsAndSlots();
@@ -31,7 +36,7 @@ MainWindow::MainWindow(QWidget *parent)
     initWidgets();
 
 
-    loadModel();
+    //loadModel();
 }
 
 MainWindow::~MainWindow()
@@ -61,6 +66,7 @@ void MainWindow::connectSignalsAndSlots()
   QObject::connect(ui->subdivideButton, &QPushButton::pressed, this, &MainWindow::performSubdivision);
   QObject::connect(ui->resetModelButton, &QPushButton::pressed, this, &MainWindow::resetModel);
   QObject::connect(ui->vertexIdsCheckBox, qOverload<int>(&QCheckBox::stateChanged), this, &MainWindow::setShowVertexIds);
+  QObject::connect(ui->logGenPushButton, &QPushButton::pressed, this, &MainWindow::generateLogAesthetic);
 }
 
 void MainWindow::initWidgets()
@@ -250,3 +256,13 @@ void MainWindow::exportModel()
 
   
 }
+
+void MainWindow::generateLogAesthetic()
+{
+  //core::ParametricLogAesthetic1 surf;
+  core::LogAestheticSpline surf;
+  m_log_gen = std::make_shared<common::BaseMesh>(surf.tessellate(50));
+  ui->openGLWidget->setPrintable(m_log_gen);
+  ui->openGLWidget->update();
+}
+
