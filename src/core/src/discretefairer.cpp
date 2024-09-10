@@ -256,6 +256,7 @@ namespace core {
       const auto& fe = cc.getFundamentalElements();
 
       const auto H = calcTargetCurvature(extended_vertex_static_info.weighed_effectors);
+
       
       const auto Qm = mesh.point(iteratable);
       const Eigen::Vector3d Q(Qm[0], Qm[1], Qm[2]);
@@ -288,7 +289,7 @@ namespace core {
   {
     std::map<common::MyMesh::VertexHandle, DiscreteFairer::ExtendedVertexStaticInfo> retval;
 
-    CurvatureCalculator cc(mesh);
+    CurvatureCalculator cc(mesh, true);
     
     for (auto vh : mesh.vertices()) {
 	
@@ -388,7 +389,7 @@ namespace core {
 	  const auto new_pos = iterateVertex(mesh, vh, static_info.at(vh));
 	  common::MyMesh::Point new_posa(new_pos[0], new_pos[1], new_pos[2]);
 	  mesh.point(vh) = new_posa;
-	  CurvatureCalculator cc(mesh);
+	  CurvatureCalculator cc(mesh, true);
 	  cc.execute(vh);
 	  std::cout << "xx: "<<cc.getMeanCurvature() << std::endl;
 	  //throw std::runtime_error("not implemented");
@@ -637,10 +638,14 @@ namespace core {
     //cb.startSession();
 
 
+
     OpenMesh::VPropHandleT<double> demo_color;
     mesh.add_property(demo_color, "demo_color");
     
     for(size_t i = 0; i < iteration_count ; i++){
+
+      std::cout<<"-----Iter--------"<<std::endl;
+
       // Calculate the curvature for each vertex at the beginning of each iteration
       CurvatureCalculator mcc(mesh, true);
       
@@ -663,10 +668,10 @@ namespace core {
       }
       
 
-      std::cout<<"-----Iter--------"<<std::endl;
       for(auto vh : mesh.vertices()){
-	CurvatureCalculator cc(mesh);
+	CurvatureCalculator cc(mesh, true);
 	cc.execute(vh);
+	std::cout << "ID: " << vh.idx() << std::endl;
 	std::cout << "exp: "<< calcTargetCurvature(extended_vertex_static_infos.at(vh).weighed_effectors).main << std::endl;
 	std::cout << "real: "<<cc.getMeanCurvature() << std::endl;
 	//mesh.property(demo_color, vh) = cc.getGaussianCurvature();

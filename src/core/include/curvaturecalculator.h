@@ -88,7 +88,7 @@ namespace core
         void execute(const Eigen::Vector3d vertex_pos, const std::vector<Eigen::Vector3d>& neighbors);
 
 
-      CurvatureCalculator(common::MyMesh &mesh, bool _use_adaptive_uvs = false);
+      CurvatureCalculator(common::MyMesh &mesh, bool _use_adaptive_uvs = true);
 
 
       Eigen::Matrix<double, 5, Eigen::Dynamic> getLastM() const;
