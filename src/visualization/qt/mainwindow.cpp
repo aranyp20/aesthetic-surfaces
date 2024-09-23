@@ -71,9 +71,9 @@ void MainWindow::connectSignalsAndSlots()
 
 void MainWindow::initWidgets()
 {
-  ui->logAlphaSpinBox->setMinimum(-5);
-  ui->logAlphaSpinBox->setMaximum(5);
-  ui->logAlphaSpinBox->setSingleStep(0.5);
+  ui->logAlphaSpinBox->setMinimum(-5000);
+  ui->logAlphaSpinBox->setMaximum(5000);
+  ui->logAlphaSpinBox->setSingleStep(0.1);
   ui->logAlphaSpinBox->setValue(common::settings::log_aesthetic_alpha);
 
   const auto file_options = object_loader.loadFileOptions();
@@ -261,7 +261,8 @@ void MainWindow::generateLogAesthetic()
 {
   //core::ParametricLogAesthetic1 surf;
   core::LogAestheticSpline surf;
-  m_log_gen = std::make_shared<common::BaseMesh>(surf.tessellate(50));
+  //m_log_gen = std::make_shared<common::BaseMesh>(surf.tessellate(50));
+  m_log_gen = std::make_shared<common::BaseMesh>(surf.execute());
   ui->openGLWidget->setPrintable(m_log_gen);
   ui->openGLWidget->update();
 }

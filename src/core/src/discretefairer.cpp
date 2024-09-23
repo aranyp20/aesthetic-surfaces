@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <ostream>
 #include <stdexcept>
@@ -241,10 +242,8 @@ namespace core {
       neighbors.push_back(*vv_it);
     }
 
-
-    
-      std::vector<Eigen::Vector3d> e_neighbors;
-      for(const auto& neighbor : neighbors){
+    std::vector<Eigen::Vector3d> e_neighbors;
+      for(const auto& neighbor : neighbors) {
 	const auto& p = mesh.point(neighbor);
 	e_neighbors.emplace_back(p[0], p[1], p[2]);
       }
@@ -255,7 +254,12 @@ namespace core {
       const auto& normal = cc.getNormal();
       const auto& fe = cc.getFundamentalElements();
 
-      const auto H = calcTargetCurvature(extended_vertex_static_info.weighed_effectors);
+      std::vector<EffectorExtra> effectors_extra; //todo ezt a konverziot elobb megcsinalni
+      for(const auto& effector : extended_vertex_static_info.weighed_effectors) {
+	effectors_extra.push_back({effector.second, vertex_curvature_map.at(effector.first), common::converter::meshPointToEigen(mesh.point(effector.first)), common::converter::meshPointToEigen(mesh.point(iteratable))});
+      }
+      
+      const auto H = calcTargetCurvature(effectors_extra);
 
       
       const auto Qm = mesh.point(iteratable);
@@ -385,7 +389,7 @@ namespace core {
 	
       for (auto vh : mesh.vertices()) {
 	if (!static_info.at(vh).is_original_vertex && vh.idx() == 10) {
-	  std::cout<<"ll: "<<calcTargetCurvature(static_info.at(vh).weighed_effectors).main<<std::endl;
+	  //std::cout<<"ll: "<<calcTargetCurvature(static_info.at(vh).weighed_effectors).main<<std::endl;
 	  const auto new_pos = iterateVertex(mesh, vh, static_info.at(vh));
 	  common::MyMesh::Point new_posa(new_pos[0], new_pos[1], new_pos[2]);
 	  mesh.point(vh) = new_posa;
@@ -480,83 +484,179 @@ namespace core {
   void DiscreteFairer::triangleGaussExecuteDemo(common::MyMesh& mesh)
   {
 
-    
-    /*
-    static bool was_init = false;
-    if(!was_init) {
-      extended_vertex_static_infos = generateExtendedVertexSaticInfos(mesh, mesh.children_parents_map); //todo ezt mindig ujra kell generalni?
-      was_init = true;
-    }
-    */
+    Subdivider subdivider;
+    subdivider.execute(mesh, 3);
 
     extended_vertex_static_infos = generateExtendedVertexSaticInfos(mesh, mesh.children_parents_map); //todo ezt mindig ujra kell generalni?
 
 
-    CurvatureCalculator cc(mesh, true);
+    //CurvatureCalculator cc(mesh, true);
     std::cout << "-----------" << std::endl;
-    for(common::MyMesh::VertexHandle vert : mesh.vertices()) {
-      if(extended_vertex_static_infos.at(vert).is_original_vertex) {
-	cc.execute(vert);
-	vertex_curvature_map[vert] =  calcSignedGaussianCurvature(cc);
+    //for(common::MyMesh::VertexHandle vert : mesh.vertices()) {
+    //  if(extended_vertex_static_infos.at(vert).is_original_vertex) {
+    //cc.execute(vert);
+	//vertex_curvature_map[vert] =  getCurvature(cc);
+    //}
+    //}
+    
+    auto vh1 = mesh.vertex_handle(0);
+    vertex_curvature_map.insert({vh1, 3});
+    auto vh2 = mesh.vertex_handle(2);
+    vertex_curvature_map.insert({vh2, 5});
+    
+
+    std::vector<int> av{72, 18, 70, 7, 87, 21, 89};
+    //std::vector<int> av{8};
+
+    for(size_t i = 0; i < 20; i++) {
+      
+    
+      std::vector<std::pair<common::MyMesh::VertexHandle, Eigen::Vector3d>> new_vertex_positions;
+      for(common::MyMesh::VertexIter v_it = mesh.vertices_begin(); v_it != mesh.vertices_end(); ++v_it){
+	auto vh = *v_it;
+	if(std::find(av.begin(), av.end(),vh.idx()) == av.end()) {
+	  continue;
+	}
+	if (!extended_vertex_static_infos.at(vh).is_original_vertex) {
+	  new_vertex_positions.emplace_back(vh, iterateVertex(mesh, vh, extended_vertex_static_infos.at(vh)));
+	}
       }
+      
+      // Replace each vertex to its new position
+      for (auto& vertex_with_new_pos : new_vertex_positions) {
+	// TODO: conversion in common (new file for all of these)
+	const auto& new_pos_e = vertex_with_new_pos.second;
+	common::MyMesh::Point new_pos(new_pos_e[0], new_pos_e[1], new_pos_e[2]);
+	
+	mesh.point(vertex_with_new_pos.first) = new_pos;
+      }
+
     }
     /*
-    auto vh1 = mesh.vertex_handle(6);
-    cc.execute(vh1);
-    vertex_curvature_map.insert({vh1, calcSignedGaussianCurvature(cc)});
-    auto vh2 = mesh.vertex_handle(10);
-    cc.execute(vh2);
-    vertex_curvature_map.insert({vh2, calcSignedGaussianCurvature(cc)});
-    auto vh3 = mesh.vertex_handle(11);
-    cc.execute(vh3);
-    vertex_curvature_map.insert({vh3, calcSignedGaussianCurvature(cc)});
-    */
-
-    std::vector<int> av{102, 24, 100, 105, 43, 42, 41, 29, 41, 16, 108, 76, 71, 6, 10, 11};
-    //std::vector<int> av{8};
-    std::vector<std::pair<common::MyMesh::VertexHandle, Eigen::Vector3d>> new_vertex_positions;
-    for(common::MyMesh::VertexIter v_it = mesh.vertices_begin(); v_it != mesh.vertices_end(); ++v_it){
-      auto vh = *v_it;
-      if(std::find(av.begin(), av.end(),vh.idx()) == av.end()) {
-	//continue;
-      }
-      if (!extended_vertex_static_infos.at(vh).is_original_vertex) {
-	new_vertex_positions.emplace_back(vh, iterateVertex(mesh, vh, extended_vertex_static_infos.at(vh)));
-      }
-    }
-      
-    // Replace each vertex to its new position
-    for (auto& vertex_with_new_pos : new_vertex_positions) {
-      // TODO: conversion in common (new file for all of these)
-      const auto& new_pos_e = vertex_with_new_pos.second;
-      common::MyMesh::Point new_pos(new_pos_e[0], new_pos_e[1], new_pos_e[2]);
-	
-      mesh.point(vertex_with_new_pos.first) = new_pos;
-    }
-
-
     OpenMesh::VPropHandleT<double> demo_color;
     mesh.add_property(demo_color, "demo_color");
-    
+    */
     for(auto vh : mesh.vertices()){
       if(std::find(av.begin(), av.end(),vh.idx()) == av.end()) {
-	//continue;
+	continue;
       }
       CurvatureCalculator cc2(mesh, true);
       cc2.execute(vh);
-      //std::cout <<"res: "<< cc2.getGaussianCurvature() << std::endl;
-      mesh.property(demo_color, vh) = cc2.getGaussianCurvature();
+      //std::cout <<"res: "<< getCurvature(cc2) << std::endl;
+      //mesh.property(demo_color, vh) = cc2.getGaussianCurvature();
     }
+    
+  }
+
+
+  DiscreteFairer::TargetCurvature DiscreteFairer::logAestheticTargetCurvatureCore(const std::vector<EffectorExtra>& effectors) const
+  {
+    TargetCurvature retval;
+
+    const double sign = effectors[0].H < 0 ? -1 : 1;
+    
+    const auto& alpha = common::settings::log_aesthetic_alpha;
+    for(const auto& effector : effectors) {
+      retval.main += std::pow(effector.H * sign, -alpha) * effector.weight;
+    }
+      
+    retval.main = std::pow(retval.main, -1.0 / alpha) * sign;
+
+    return retval;
+  }
+
+  DiscreteFairer::TargetCurvature DiscreteFairer::logAestheticTargetCurvatureMixed(const std::vector<EffectorExtra>& effectors) const
+  {
+    const auto zero_point = [](const EffectorExtra& e_neg, const EffectorExtra& e_pos)
+    {
+      return (e_pos.H * e_neg.pos + std::fabs(e_neg.H) * e_pos.pos) / (e_pos.H + std::fabs(e_neg.H));
+    };
+
+
+    std::vector<EffectorExtra> adjusted_effectors;
+    if(effectors.size() == 2) {
+      const auto zp = zero_point(effectors[0], effectors[1]);
+
+      const auto dist_to_e0 = (effectors[0].pos - effectors[0].subject_pos).norm();
+      const auto dist_to_e1 = (effectors[1].pos - effectors[0].subject_pos).norm();
+      const auto dist_to_zp = (zp - effectors[0].subject_pos).norm();
+      if((effectors[0].pos - zp).norm() > dist_to_e0) {
+	/* Subject is closer to effectors[0] than the zero point -> part of the effectors[0]--zp curve. */
+	adjusted_effectors.push_back({dist_to_zp / (dist_to_e0 + dist_to_zp),effectors[0].H,{}, {} });
+      }
+      else {
+	/* Subject is closer to effectors[1] than the zero point -> part of the effectors[1]--zp curve. */
+	adjusted_effectors.push_back({dist_to_zp / (dist_to_e1 + dist_to_zp),effectors[1].H,{}, {} });
+      }
+    }
+    else {
+
+    }
+
+
+    return logAestheticTargetCurvatureCore(adjusted_effectors);
   }
   
-  DiscreteFairer::TargetCurvature DiscreteFairer::calcTargetCurvature(const std::vector<std::pair<common::MyMesh::VertexHandle, double>>& weighed_effectors) const
+  DiscreteFairer::TargetCurvature DiscreteFairer::calcLogAestheticTargetCurvature(const std::vector<EffectorExtra>& weighed_effectors) const
+  {
+      
+    auto w_effectors = weighed_effectors;
+
+    
+    if (w_effectors.size() > 3) {
+      throw std::runtime_error("Log-aesthetic df only works for trimeshes.");
+    }
+    
+    std::sort(w_effectors.begin(), w_effectors.end(), [this](const EffectorExtra& v1, const EffectorExtra& v2){
+      return v2.H < v2.H;
+    });
+
+    if (w_effectors.front().H > 0 || w_effectors.back().H < 0) {
+      /* For same signed curvatures simply use the core function. */
+      return logAestheticTargetCurvatureCore(w_effectors);
+    }
+      
+    return retval;
+  }
+
+  DiscreteFairer::TargetCurvature DiscreteFairer::calcLogAestheticTargetCurvature_offsetVersion(const std::vector<EffectorExtra>& weighed_effectors) const
+  {
+    TargetCurvature retval;
+    
+    auto min_curvature = std::numeric_limits<double>::min();
+    for(const auto& weighed_effector : weighed_effectors) {
+      if(weighed_effector.H < min_curvature) {
+	min_curvature = weighed_effector.H;
+      }
+    }
+    auto offseter = 0.0;
+    if(min_curvature < 1.0) {
+      offseter = 1.0;
+      if(min_curvature < 0.0) {
+	offseter += std::fabs(min_curvature);
+      }
+    }
+      
+    const auto alpha = common::settings::log_aesthetic_alpha;
+    for(const auto& weighed_effector : weighed_effectors) {
+      retval.main += std::pow(weighed_effector.H + offseter,-alpha) * weighed_effector.weight;
+    }
+      
+    retval.main = std::pow(retval.main, -1.0 / alpha) - offseter;
+
+      
+    return retval;
+  }
+  
+  
+  DiscreteFairer::TargetCurvature DiscreteFairer::calcTargetCurvature(const std::vector<EffectorExtra>& weighed_effectors) const
   {
 
     TargetCurvature retval;
     switch(common::settings::selected_alg) {      
     case common::settings::Algorithm::BASIC: {
 	for(const auto& weighed_effector : weighed_effectors) {
-	  retval.main += vertex_curvature_map.at(weighed_effector.first) * weighed_effector.second;
+	  retval.main += weighed_effector.H * weighed_effector.weight;
 	}
 	return retval;
       }
@@ -564,25 +664,18 @@ namespace core {
     case common::settings::Algorithm::BEZIER: {
 	double bern_sum = 0.0;
 	for(const auto& weighed_effector : weighed_effectors) {
-	  bern_sum += bernstein_interpol(weighed_effector.second);
+	  bern_sum += bernstein_interpol(weighed_effector.weight);
 	}
 	//bern_sum = 3.0/2.0; TODO
 	for(const auto& weighed_effector : weighed_effectors) {
-	  retval.main += vertex_curvature_map.at(weighed_effector.first) * (bernstein_interpol(weighed_effector.second)/bern_sum);
+	  retval.main += weighed_effector.H * (bernstein_interpol(weighed_effector.weight) / bern_sum);
 	}
 	return retval;
       }
 
     case common::settings::Algorithm::LOG_AESTHETIC: {
-	const auto alpha = common::settings::log_aesthetic_alpha;
-	for(const auto& weighed_effector : weighed_effectors) {
-	  retval.main += std::pow(vertex_curvature_map.at(weighed_effector.first),-alpha) * weighed_effector.second;
-	}
-	
-	
-	retval.main = std::pow(retval.main, -1.0 / alpha);
-	return retval;
-      }
+      return calcLogAestheticTargetCurvature(weighed_effectors);
+    }
     }
       
   }
@@ -644,7 +737,7 @@ namespace core {
     
     for(size_t i = 0; i < iteration_count ; i++){
 
-      std::cout<<"-----Iter--------"<<std::endl;
+     std::cout<<"-----Iter--------"<<std::endl;
 
       // Calculate the curvature for each vertex at the beginning of each iteration
       CurvatureCalculator mcc(mesh, true);
@@ -671,10 +764,10 @@ namespace core {
       for(auto vh : mesh.vertices()){
 	CurvatureCalculator cc(mesh, true);
 	cc.execute(vh);
-	std::cout << "ID: " << vh.idx() << std::endl;
-	std::cout << "exp: "<< calcTargetCurvature(extended_vertex_static_infos.at(vh).weighed_effectors).main << std::endl;
-	std::cout << "real: "<<cc.getMeanCurvature() << std::endl;
-	//mesh.property(demo_color, vh) = cc.getGaussianCurvature();
+	//std::cout << "ID: " << vh.idx() << std::endl;
+	//std::cout << "exp: "<< calcTargetCurvature(extended_vertex_static_infos.at(vh).weighed_effectors).main << std::endl;
+	//std::cout << "real: "<<cc.getMeanCurvature() << std::endl;
+	mesh.property(demo_color, vh) = cc.getGaussianCurvature();
 
       }
 
@@ -787,17 +880,19 @@ namespace core {
     double t = 0;
     
     const auto determinant = b * b - 4 * a * c;
-    if (determinant < 0) {
-      std::cout << "Gaussian Q det error." << std::endl;
-      return Q;
+    if (determinant < -1e-5) {
+      std::cout << H.main << std::endl;
+      std::cout << "Gaussian Q det error. "<< determinant << std::endl;
+      return Q0;
     }
-    else if (determinant < 0.001) {
+    else if (determinant < 1e-5) {
       t = - b / (2 * a);
     }
     else {
       const auto t1 = (- b + sqrt(determinant)) / (2 * a);
       const auto t2 = (- b - sqrt(determinant)) / (2 * a);
       t = chose_max ? std::max(t1,t2) : std::min(t1, t2);
+      //t = std::fabs(t1) < std::fabs(t2) ? t1 : t2;
       //t = std::min(t1,t2);
     }
 

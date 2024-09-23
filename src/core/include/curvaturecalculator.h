@@ -38,7 +38,7 @@ namespace core
             Eigen::Vector3d Suu{0, 0, 0};
             Eigen::Vector3d Suv{0, 0, 0};
             Eigen::Vector3d Svv{0, 0, 0};
-        };
+        } eq;
 
       DerResults calcDer(const InputPoints &ipp);
         Eigen::Vector3d S(const double u, const double v, const DerResults &Ss) const;

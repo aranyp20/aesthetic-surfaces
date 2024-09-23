@@ -214,7 +214,7 @@ namespace core
 	const auto ip = ipp.translatePoints();
 
 
-        const auto eq = calcDer(ip);
+        eq = calcDer(ip);
 	//std::cout<<"SuSv: "<<eq.Su<<", "<<eq.Sv<<std::endl;
 
         fundamental_elements.E = eq.Su.dot(eq.Su);
@@ -355,9 +355,28 @@ namespace core
     Eigen::EigenSolver<Eigen::MatrixXd> solver(S);
     if(solver.info() == Eigen::Success) {
       retval.umbolic = true; //todo rly? also check for imaginarey part
-      retval.min_val = std::min(-solver.eigenvalues()[0].real(), -solver.eigenvalues()[1].real());
-      retval.max_val = std::max(-solver.eigenvalues()[0].real(), -solver.eigenvalues()[1].real()); //todo a mean curvature keplete flippel mindent ezert kell ide minusz
-      //std::cout << "A: "<< retval.min_val<<" "<<retval.max_val << std::endl;
+
+      const auto val0 = -solver.eigenvalues()[0].real();//todo a mean curvature keplete flippel mindent ezert kell ide minusz
+      const auto val1 = -solver.eigenvalues()[1].real();
+      const Eigen::Vector3d dir0 = solver.eigenvectors().col(0)[0].real() * eq.Su + solver.eigenvectors().col(0)[1].real() * eq.Sv;
+      const Eigen::Vector3d dir1 = solver.eigenvectors().col(1)[0].real() * eq.Su + solver.eigenvectors().col(1)[1].real() * eq.Sv;
+      
+      if(val0 < val1) {
+	retval.min_val = val0;
+	retval.min_dir = dir0;
+	retval.max_val = val1;
+	retval.min_dir = dir1;
+      }
+      else {
+	retval.min_val = val1;
+	retval.min_dir = dir1;
+	retval.max_val = val0;
+	retval.min_dir = dir0;
+      }
+
+      
+      
+      
     }
     else {
       retval.umbolic = false;

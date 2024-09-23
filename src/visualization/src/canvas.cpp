@@ -3,6 +3,7 @@
 #include "organize.hpp"
 #include "settings.h"
 #include "type_converter.h"
+#include <OpenGL/OpenGL.h>
 #include <OpenGL/gl.h>
 #include <QPainter>
 #include <QtCore/qnamespace.h>
@@ -218,18 +219,32 @@ std::vector<Canvas::qGlVertex> Canvas::printableFaceToTriangles(const common::My
 
 
 
-      double color = 0;
-      bool has_curvature = false;
-	    
+      //double color = 0;
+      //bool has_curvature = false;
+
+      Eigen::Vector3d rgb_curvature(1,0,0);
+      
       OpenMesh::VPropHandleT<double> myprop;
       if(printable_mesh->get_property_handle(myprop, "demo_color")){
-	color = printable_mesh->property(myprop, vh);
+	const auto color = printable_mesh->property(myprop, vh);
+	if(color < -1e-10) {
+	  rgb_curvature=Eigen::Vector3d(0,1,0);
+	}
+	else if(color > 1e-10) {
+	  rgb_curvature=Eigen::Vector3d(0,0,1);
+	}
+	else {
+	  rgb_curvature=Eigen::Vector3d(0,0,0);
+	  //const auto val = (color + 10.0) / 20.0;
+	  //rgb_curvature=Eigen::Vector3d(val,val,val);
+	}
+	
 	//has_curvature = true;
       }
 	 
 
           
-      const auto rgb_curvature = has_curvature ? common::color::hsvToRgb({color / hue_divider + hue_offset, 1.0, 1.0}) : Eigen::Vector3d(1.0, 0.0, 0.0);
+      //const auto rgb_curvature = has_curvature ? common::color::hsvToRgb({color / hue_divider + hue_offset, 1.0, 1.0}) : Eigen::Vector3d(1.0, 0.0, 0.0);
       //const auto rgb_curvature = has_curvature ? common::color::hsvToRgb({color / max_color_val, 1.0, 1.0}) : Eigen::Vector3d(1.0, 0.0, 0.0);
 
       retval.push_back({{vertex_position[0], vertex_position[1], vertex_position[2]}, {static_cast<float>(rgb_curvature[0]), static_cast<float>(rgb_curvature[1]), static_cast<float>(rgb_curvature[2])}});
@@ -356,6 +371,25 @@ void Canvas::paintGL()
 
 
 */
+
+#ifdef SPLINE_RENDER
+
+    glLineWidth(0.2f);
+    glBegin(GL_LINES);
+
+    glColor3f(1.0, 0.0, 0.0);
+    glVertex2f(0, 0);
+    glVertex2f(1, 0);
+
+    glColor3f(0.0, 0.0, 1.0);
+    glVertex2f(0, 0);
+    glVertex2f(0, 1);
+    
+    glEnd();
+
+#endif
+    
+    
     if (highlight_edges) {      
       glLineWidth(0.1f);
       glBegin(GL_LINES);

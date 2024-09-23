@@ -33,8 +33,31 @@ public:
     double k_max = 0;
     double k_min = 0;
   };
-  TargetCurvature calcTargetCurvature(const std::vector<std::pair<common::MyMesh::VertexHandle, double>>& weighed_effectors) const;
 
+  struct EffectorExtra
+  {
+    double weight;
+    double H;
+    Eigen::Vector3d pos;
+
+    Eigen::Vector3d subject_pos; //TODO out of here
+  };
+
+  TargetCurvature calcTargetCurvature(const std::vector<EffectorExtra>& weighed_effectors) const;
+
+
+  /* Precondition: weights are all same signed */
+  TargetCurvature logAestheticTargetCurvatureCore(const std::vector<EffectorExtra>& effectors) const;
+
+  /* Precondition: negative and positive weight(s) are present as well.
+     Precondition II: ordered by curvature. */
+  TargetCurvature logAestheticTargetCurvatureMixed(const std::vector<EffectorExtra>& effectors) const;
+  
+  TargetCurvature calcLogAestheticTargetCurvature(const std::vector<EffectorExtra>& weighed_effectors) const;
+  TargetCurvature calcLogAestheticTargetCurvature_offsetVersion(const std::vector<EffectorExtra>& weighed_effectors) const;
+
+
+  
   void triangleExecuteDemo(common::MyMesh& mesh);
   void pentaExecuteDemo(common::MyMesh& mesh);
   void triangleGaussExecuteDemo(common::MyMesh& mesh);
