@@ -115,6 +115,28 @@ namespace core {
       return {l1, l2, l3, l4};
     }
 
+    std::array<double, 3> barycentricCoordinatesImproved(const Eigen::Vector3d& P, 
+							 const Eigen::Vector3d& P1, 
+							 const Eigen::Vector3d& P2, 
+							 const Eigen::Vector3d& P3) {
+      
+      const auto bar_of_vertex = [P](const Eigen::Vector3d& pi, const Eigen::Vector3d& pi0, const Eigen::Vector3d& pi2) {
+
+	return common::math::heron(pi, pi0, pi2) / (common::math::heron(pi, pi0, P) * common::math::heron(pi, pi2, P));
+	
+      };
+
+      auto l1 = bar_of_vertex(P1, P2, P3);
+      auto l2 = bar_of_vertex(P2, P1, P3);
+      auto l3 = bar_of_vertex(P3, P1, P2);
+      const auto normalizer = l1 + l2 + l3;
+      l1 /= normalizer;
+      l2 /= normalizer;
+      l3 /= normalizer;
+      
+      return {l1, l2, l3};
+    }
+
  
   } //namespace
 
@@ -354,7 +376,7 @@ namespace core {
   {
       
       Subdivider subdivider;
-      subdivider.execute(mesh, 3);
+      subdivider.execute(mesh, 5);
       
       OpenMesh::VPropHandleT<double> demo_color;
       mesh.add_property(demo_color, "demo_color");
@@ -365,20 +387,20 @@ namespace core {
 	switch(v.idx()) {
 	case 0:
 	  {
-	    vertex_curvature_map[v] = 0.5;
-	    mesh.property(demo_color, v) = 0.5;
+	    vertex_curvature_map[v] = 6;
+	    mesh.property(demo_color, v) = .5;
 	    break;
 	  }
-	case 1:
+	case 4:
 	  {
-	    vertex_curvature_map[v] = 1.0;
-	    mesh.property(demo_color, v) = 1.0;
+	    vertex_curvature_map[v] = -7;
+	    mesh.property(demo_color, v) = -.2;
 	    break;
 	  }
-	case 2:
+	case 5:
 	  {
-	    vertex_curvature_map[v] = 20.0;
-	    mesh.property(demo_color, v) = 20.0;
+	    vertex_curvature_map[v] = 9;
+	    mesh.property(demo_color, v) = .3;
 	    break;
 	  }
 	default:
@@ -386,18 +408,21 @@ namespace core {
 	}
       }
       
-	
-      for (auto vh : mesh.vertices()) {
-	if (!static_info.at(vh).is_original_vertex && vh.idx() == 10) {
-	  //std::cout<<"ll: "<<calcTargetCurvature(static_info.at(vh).weighed_effectors).main<<std::endl;
-	  const auto new_pos = iterateVertex(mesh, vh, static_info.at(vh));
-	  common::MyMesh::Point new_posa(new_pos[0], new_pos[1], new_pos[2]);
-	  mesh.point(vh) = new_posa;
-	  CurvatureCalculator cc(mesh, true);
-	  cc.execute(vh);
-	  std::cout << "xx: "<<cc.getMeanCurvature() << std::endl;
-	  //throw std::runtime_error("not implemented");
-	  //mesh.property(demo_color, vh) = calcTargetCurvature(static_info.at(vh).weighed_effectors);
+
+      for(size_t i = 0; i < 8 ; i++){
+	for (auto vh : mesh.vertices()) {
+	  bool in_triangle = true;
+	  for(const auto& effector : static_info.at(vh).weighed_effectors) {
+	    if(effector.first.idx() != 0 && effector.first.idx() != 4 && effector.first.idx() != 5) {
+	      in_triangle = false;
+	    }
+	  }
+	  
+	  if (in_triangle && !static_info.at(vh).is_original_vertex) {
+	    const auto new_pos = iterateVertex(mesh, vh, static_info.at(vh));
+	    common::MyMesh::Point new_posa(new_pos[0], new_pos[1], new_pos[2]);
+	    mesh.point(vh) = new_posa;
+	  }
 	}
       }
 
@@ -586,11 +611,57 @@ namespace core {
       }
       else {
 	/* Subject is closer to effectors[1] than the zero point -> part of the effectors[1]--zp curve. */
-	adjusted_effectors.push_back({dist_to_zp / (dist_to_e1 + dist_to_zp),effectors[1].H,{}, {} });
+	adjusted_effectors.push_back({dist_to_zp / (dist_to_e1 + dist_to_zp),effectors[1].H});
       }
     }
     else {
 
+      const Eigen::Vector3d normal = (effectors[0].pos - effectors[1].pos).cross(effectors[2].pos - effectors[1].pos);
+      
+      if (effectors[1].H > 0) {
+	/* N P P */
+	const auto zp1 = zero_point(effectors[0], effectors[1]);
+	const auto zp2 = zero_point(effectors[0], effectors[2]);
+
+	const Eigen::Vector3d towards_one_side = normal.cross(zp1 - zp2);
+
+	const bool neg_side = towards_one_side.dot(effectors[0].pos) > 0;
+	const bool examined_side = towards_one_side.dot(effectors[0].subject_pos) > 0;
+
+	const bool on_neg_side = neg_side == examined_side;
+	
+	if(on_neg_side) {
+	  const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos, effectors[0].pos, zp1, zp2);
+	  adjusted_effectors.push_back({bary_coords[0], effectors[0].H});
+	} else {
+	  const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos, effectors[1].pos, zp1, zp2, effectors[2].pos);
+	  adjusted_effectors.push_back({bary_coords[0], effectors[1].H});
+	  adjusted_effectors.push_back({bary_coords[3], effectors[2].H});
+	}
+      }
+      else {
+	/* N N P */
+
+	const auto zp1 = zero_point(effectors[2], effectors[0]);
+	const auto zp2 = zero_point(effectors[2], effectors[1]);
+
+	const Eigen::Vector3d towards_one_side = normal.cross(zp1 - zp2);
+
+	const bool pos_side = towards_one_side.dot(effectors[2].pos) > 0;
+	const bool examined_side = towards_one_side.dot(effectors[0].subject_pos) > 0;
+
+	const bool on_pos_side = pos_side == examined_side;
+	
+	if(on_pos_side) {
+	  const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos, effectors[2].pos, zp1, zp2);
+	  adjusted_effectors.push_back({bary_coords[0], effectors[2].H});
+	} else {
+	  const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos, effectors[0].pos, zp1, zp2, effectors[1].pos);
+	  adjusted_effectors.push_back({bary_coords[0], effectors[0].H});
+	  adjusted_effectors.push_back({bary_coords[3], effectors[1].H});
+	}
+	
+      }
     }
 
 
@@ -599,7 +670,7 @@ namespace core {
   
   DiscreteFairer::TargetCurvature DiscreteFairer::calcLogAestheticTargetCurvature(const std::vector<EffectorExtra>& weighed_effectors) const
   {
-      
+  
     auto w_effectors = weighed_effectors;
 
     
@@ -616,7 +687,7 @@ namespace core {
       return logAestheticTargetCurvatureCore(w_effectors);
     }
       
-    return retval;
+    return logAestheticTargetCurvatureMixed(w_effectors);
   }
 
   DiscreteFairer::TargetCurvature DiscreteFairer::calcLogAestheticTargetCurvature_offsetVersion(const std::vector<EffectorExtra>& weighed_effectors) const
@@ -714,15 +785,9 @@ namespace core {
 
   void DiscreteFairer::execute(common::MyMesh& mesh, size_t iteration_count, std::function<void(int)> cb)
   {
-    //return triangleGaussExecuteDemo(mesh);
-
     
-    if (mesh.n_vertices() == 3 ) {
-      return triangleExecuteDemo(mesh);
-    }
-    if (mesh.n_vertices() == 5 && false) {
-      return pentaExecuteDemo(mesh);
-    }
+    return triangleExecuteDemo(mesh);
+    
     
     extended_vertex_static_infos = generateExtendedVertexSaticInfos(mesh, mesh.children_parents_map); //todo ezt mindig ujra kell generalni?
 
