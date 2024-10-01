@@ -41,6 +41,8 @@ public:
     Eigen::Vector3d pos;
 
     Eigen::Vector3d subject_pos; //TODO out of here
+
+    int d_id;
   };
 
   TargetCurvature calcTargetCurvature(const std::vector<EffectorExtra>& weighed_effectors) const;

@@ -1,5 +1,6 @@
 #include "canvas.h"
 #include "curvaturecalculator.h"
+#include "mesh.h"
 #include "organize.hpp"
 #include "settings.h"
 #include "type_converter.h"
@@ -212,42 +213,32 @@ std::vector<Canvas::qGlVertex> Canvas::printableMeshToLines() const //edges
 
 std::vector<Canvas::qGlVertex> Canvas::printableFaceToTriangles(const common::MyMesh::FaceHandle& fh) const
 {
-  std::vector<Canvas::qGlVertex> retval;
+  std::vector<common::MyMesh::VertexHandle> vhs;
+  std::vector<Eigen::Vector3d> poses;
   for (common::MyMesh::ConstFaceHalfedgeIter fhe_it = printable_mesh->cfh_iter(fh); fhe_it.is_valid(); ++fhe_it) {
-      common::MyMesh::VertexHandle vh = printable_mesh->to_vertex_handle(*fhe_it);
+    common::MyMesh::VertexHandle vh = printable_mesh->to_vertex_handle(*fhe_it);
+    vhs.push_back(vh);
+    common::MyMesh::Point vertex_position = printable_mesh->point(vh);
+    poses.push_back(common::converter::meshPointToEigen(vertex_position));
+  }
+
+  //const auto _normal = printable_mesh->normal(fh);
+  //auto normal = Eigen::Vector3d(_normal[0],_normal[1], _normal[2]);
+  Eigen::Vector3d normal = (poses[2] - poses[0]).cross(poses[1] - poses[0]).normalized();
+
+  const Eigen::Vector3d mid_point = common::average(poses);
+  const Eigen::Vector3d eye_vec = (camera.getEyePos() - mid_point).normalized();
+  
+  if (normal.dot(eye_vec) < 0) {
+    //normal *= -1;
+  }
+  const double brightness = std::acosf(normal.dot(eye_vec)) / (M_PI );
+  
+  std::vector<Canvas::qGlVertex> retval;
+  for (const auto& vh : vhs) {
       common::MyMesh::Point vertex_position = printable_mesh->point(vh);
 
-
-
-      //double color = 0;
-      //bool has_curvature = false;
-
-      Eigen::Vector3d rgb_curvature(1,0,0);
-      
-      OpenMesh::VPropHandleT<double> myprop;
-      if(printable_mesh->get_property_handle(myprop, "demo_color")){
-	const auto color = printable_mesh->property(myprop, vh);
-	if(color < -1e-10) {
-	  rgb_curvature=Eigen::Vector3d(0,1,0);
-	}
-	else if(color > 1e-10) {
-	  rgb_curvature=Eigen::Vector3d(0,0,1);
-	}
-	else {
-	  rgb_curvature=Eigen::Vector3d(0,0,0);
-	  //const auto val = (color + 10.0) / 20.0;
-	  //rgb_curvature=Eigen::Vector3d(val,val,val);
-	}
-	
-	//has_curvature = true;
-      }
-	 
-
-          
-      //const auto rgb_curvature = has_curvature ? common::color::hsvToRgb({color / hue_divider + hue_offset, 1.0, 1.0}) : Eigen::Vector3d(1.0, 0.0, 0.0);
-      //const auto rgb_curvature = has_curvature ? common::color::hsvToRgb({color / max_color_val, 1.0, 1.0}) : Eigen::Vector3d(1.0, 0.0, 0.0);
-
-      retval.push_back({{vertex_position[0], vertex_position[1], vertex_position[2]}, {static_cast<float>(rgb_curvature[0]), static_cast<float>(rgb_curvature[1]), static_cast<float>(rgb_curvature[2])}});
+      retval.push_back({{vertex_position[0], vertex_position[1], vertex_position[2]}, {static_cast<float>(brightness), static_cast<float>(brightness), static_cast<float>(brightness)}});
   }
 
   if (retval.size() == 4) {

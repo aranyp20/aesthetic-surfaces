@@ -12,9 +12,14 @@ class Camera
 
 public:
 
-    Camera();
+  Camera();
 
-    Eigen::Matrix4d V() const;
-    Eigen::Matrix4d P() const;
+  Eigen::Matrix4d V() const;
+  Eigen::Matrix4d P() const;
 
+  inline Eigen::Vector3d getEyePos() const
+  {
+    return w_eye;
+  }
+  
 };

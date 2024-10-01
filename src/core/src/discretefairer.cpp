@@ -278,7 +278,7 @@ namespace core {
 
       std::vector<EffectorExtra> effectors_extra; //todo ezt a konverziot elobb megcsinalni
       for(const auto& effector : extended_vertex_static_info.weighed_effectors) {
-	effectors_extra.push_back({effector.second, vertex_curvature_map.at(effector.first), common::converter::meshPointToEigen(mesh.point(effector.first)), common::converter::meshPointToEigen(mesh.point(iteratable))});
+	effectors_extra.push_back({effector.second, vertex_curvature_map.at(effector.first), common::converter::meshPointToEigen(mesh.point(effector.first)), common::converter::meshPointToEigen(mesh.point(iteratable)), effector.first.idx()});
       }
       
       const auto H = calcTargetCurvature(effectors_extra);
@@ -387,19 +387,19 @@ namespace core {
 	switch(v.idx()) {
 	case 0:
 	  {
-	    vertex_curvature_map[v] = 6;
+	    vertex_curvature_map[v] = 4;
 	    mesh.property(demo_color, v) = .5;
 	    break;
 	  }
 	case 4:
 	  {
-	    vertex_curvature_map[v] = -7;
+	    vertex_curvature_map[v] = -5;
 	    mesh.property(demo_color, v) = -.2;
 	    break;
 	  }
 	case 5:
 	  {
-	    vertex_curvature_map[v] = 9;
+	    vertex_curvature_map[v] = 7;
 	    mesh.property(demo_color, v) = .3;
 	    break;
 	  }
@@ -409,7 +409,7 @@ namespace core {
       }
       
 
-      for(size_t i = 0; i < 8 ; i++){
+      for(size_t i = 0; i < 10 ; i++){
 	for (auto vh : mesh.vertices()) {
 	  bool in_triangle = true;
 	  for(const auto& effector : static_info.at(vh).weighed_effectors) {
@@ -579,14 +579,13 @@ namespace core {
     TargetCurvature retval;
 
     const double sign = effectors[0].H < 0 ? -1 : 1;
-    
     const auto& alpha = common::settings::log_aesthetic_alpha;
     for(const auto& effector : effectors) {
-      retval.main += std::pow(effector.H * sign, -alpha) * effector.weight;
+      retval.main += std::powf(effector.H * sign, -alpha) * effector.weight;
     }
       
-    retval.main = std::pow(retval.main, -1.0 / alpha) * sign;
-
+    retval.main = std::powf(retval.main, -1.0 / alpha) * sign;
+    
     return retval;
   }
 
@@ -615,8 +614,8 @@ namespace core {
       }
     }
     else {
-
       const Eigen::Vector3d normal = (effectors[0].pos - effectors[1].pos).cross(effectors[2].pos - effectors[1].pos);
+
       
       if (effectors[1].H > 0) {
 	/* N P P */
@@ -625,10 +624,21 @@ namespace core {
 
 	const Eigen::Vector3d towards_one_side = normal.cross(zp1 - zp2);
 
-	const bool neg_side = towards_one_side.dot(effectors[0].pos) > 0;
-	const bool examined_side = towards_one_side.dot(effectors[0].subject_pos) > 0;
+	const bool neg_side = towards_one_side.dot(effectors[0].pos - zp2) > 0;
+	const bool examined_side = towards_one_side.dot(effectors[0].subject_pos - zp2) > 0;
 
 	const bool on_neg_side = neg_side == examined_side;
+
+	/*
+      if((effectors[0].d_id == 14 || effectors[0].d_id == 17 || effectors[0].d_id == 22) &&
+	 (effectors[1].d_id == 14 || effectors[1].d_id == 17 || effectors[1].d_id == 22) &&
+	 (effectors[2].d_id == 14 || effectors[2].d_id == 17 || effectors[2].d_id == 22))
+	{
+	  std::cout << "***" << std::endl;
+	  //std::cout << adjusted_effectors[0].H<<" "<<(adjusted_effectors.size() == 2 ? adjusted_effectors[1].H : 99) << std::endl;
+	  std::cout <<on_neg_side  << std::endl;
+	}
+	*/
 	
 	if(on_neg_side) {
 	  const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos, effectors[0].pos, zp1, zp2);
@@ -642,13 +652,13 @@ namespace core {
       else {
 	/* N N P */
 
-	const auto zp1 = zero_point(effectors[2], effectors[0]);
-	const auto zp2 = zero_point(effectors[2], effectors[1]);
+	const auto zp1 = zero_point(effectors[0], effectors[2]);
+	const auto zp2 = zero_point(effectors[1], effectors[2]);
 
 	const Eigen::Vector3d towards_one_side = normal.cross(zp1 - zp2);
 
-	const bool pos_side = towards_one_side.dot(effectors[2].pos) > 0;
-	const bool examined_side = towards_one_side.dot(effectors[0].subject_pos) > 0;
+	const bool pos_side = towards_one_side.dot(effectors[2].pos - zp2) > 0;
+	const bool examined_side = towards_one_side.dot(effectors[0].subject_pos - zp2) > 0;
 
 	const bool on_pos_side = pos_side == examined_side;
 	
@@ -662,6 +672,8 @@ namespace core {
 	}
 	
       }
+
+
     }
 
 
@@ -679,14 +691,13 @@ namespace core {
     }
     
     std::sort(w_effectors.begin(), w_effectors.end(), [this](const EffectorExtra& v1, const EffectorExtra& v2){
-      return v2.H < v2.H;
+      return v1.H < v2.H;
     });
 
     if (w_effectors.front().H > 0 || w_effectors.back().H < 0) {
       /* For same signed curvatures simply use the core function. */
       return logAestheticTargetCurvatureCore(w_effectors);
     }
-      
     return logAestheticTargetCurvatureMixed(w_effectors);
   }
 
@@ -786,7 +797,7 @@ namespace core {
   void DiscreteFairer::execute(common::MyMesh& mesh, size_t iteration_count, std::function<void(int)> cb)
   {
     
-    return triangleExecuteDemo(mesh);
+    //return triangleExecuteDemo(mesh);
     
     
     extended_vertex_static_infos = generateExtendedVertexSaticInfos(mesh, mesh.children_parents_map); //todo ezt mindig ujra kell generalni?
@@ -794,8 +805,6 @@ namespace core {
     
     //metrics::CurvatureBased cb(mesh, *this);
     //cb.startSession();
-
-
 
     OpenMesh::VPropHandleT<double> demo_color;
     mesh.add_property(demo_color, "demo_color");
@@ -816,7 +825,6 @@ namespace core {
 	}
       }
       //cb.postIteration();
-
       
       if (common::settings::sync) {
 	iterateVerticesSync(mesh);
