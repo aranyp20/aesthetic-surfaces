@@ -9,6 +9,7 @@
 #include <QtCore/qmetatype.h>
 #include <QtCore/qnamespace.h>
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <functional>
 #include <iostream>
@@ -225,9 +226,18 @@ namespace core {
       const float v = (d11 * d20 - d01 * d21) / denom;
       const float w = (d00 * d21 - d01 * d20) / denom;
       const float u = 1.0f - v - w;
-      retval.push_back({t_effectors[0], u});
-      retval.push_back({t_effectors[1], v});
-      retval.push_back({t_effectors[2], w});
+      //retval.push_back({t_effectors[0], u});
+      //retval.push_back({t_effectors[1], v});
+      //retval.push_back({t_effectors[2], w});
+
+      const auto barys = barycentricCoordinatesImproved(common::converter::meshPointToEigen(mesh.point(to)),
+							common::converter::meshPointToEigen(mesh.point(t_effectors[0])),
+							common::converter::meshPointToEigen(mesh.point(t_effectors[1])),
+							common::converter::meshPointToEigen(mesh.point(t_effectors[2])));
+
+      retval.push_back({t_effectors[0], barys[0]});
+      retval.push_back({t_effectors[1], barys[1]});
+      retval.push_back({t_effectors[2], barys[2]});
 
     }
     else if (effectors.size() == 4) { // todo sima else es a generalized mehet n-re
@@ -280,9 +290,8 @@ namespace core {
       for(const auto& effector : extended_vertex_static_info.weighed_effectors) {
 	effectors_extra.push_back({effector.second, vertex_curvature_map.at(effector.first), common::converter::meshPointToEigen(mesh.point(effector.first)), common::converter::meshPointToEigen(mesh.point(iteratable)), effector.first.idx()});
       }
-      
-      const auto H = calcTargetCurvature(effectors_extra);
 
+      const auto H = calcTargetCurvature(effectors_extra);
       
       const auto Qm = mesh.point(iteratable);
       const Eigen::Vector3d Q(Qm[0], Qm[1], Qm[2]);
@@ -574,21 +583,32 @@ namespace core {
   }
 
 
-  DiscreteFairer::TargetCurvature DiscreteFairer::logAestheticTargetCurvatureCore(const std::vector<EffectorExtra>& effectors) const
+  DiscreteFairer::TargetCurvature DiscreteFairer::logAestheticTargetCurvatureCore(const std::vector<EffectorExtra>& effectors, const double alpha) const
   {
     TargetCurvature retval;
-
     const double sign = effectors[0].H < 0 ? -1 : 1;
-    const auto& alpha = common::settings::log_aesthetic_alpha;
     for(const auto& effector : effectors) {
       retval.main += std::powf(effector.H * sign, -alpha) * effector.weight;
     }
       
     retval.main = std::powf(retval.main, -1.0 / alpha) * sign;
-    
+
     return retval;
   }
 
+  struct SlicePoints
+  {
+    Eigen::Vector3d start;
+
+    Eigen::Vector3d neg_side_sp;
+    double neg_side_H;
+    
+    Eigen::Vector3d pos_side_sp;
+    double pos_side_H;
+    
+    Eigen::Vector3d end;
+  };
+  
   DiscreteFairer::TargetCurvature DiscreteFairer::logAestheticTargetCurvatureMixed(const std::vector<EffectorExtra>& effectors) const
   {
     const auto zero_point = [](const EffectorExtra& e_neg, const EffectorExtra& e_pos)
@@ -596,88 +616,279 @@ namespace core {
       return (e_pos.H * e_neg.pos + std::fabs(e_neg.H) * e_pos.pos) / (e_pos.H + std::fabs(e_neg.H));
     };
 
+    const auto trislice_points = [](const EffectorExtra& e_neg, const EffectorExtra& e_pos)
+    {
+      constexpr double middle_ratio = 0.2;
+      
+      SlicePoints retval;
+      retval.start = e_neg.pos;
+      retval.end = e_pos.pos;
 
-    std::vector<EffectorExtra> adjusted_effectors;
-    if(effectors.size() == 2) {
-      const auto zp = zero_point(effectors[0], effectors[1]);
+      const auto total_value_interval = std::fabs(e_neg.H) + e_pos.H;
+      const auto middle_value_interval = total_value_interval * middle_ratio;
+      
+      const auto zero_t = std::fabs(e_neg.H) / total_value_interval;
 
-      const auto dist_to_e0 = (effectors[0].pos - effectors[0].subject_pos).norm();
-      const auto dist_to_e1 = (effectors[1].pos - effectors[0].subject_pos).norm();
-      const auto dist_to_zp = (zp - effectors[0].subject_pos).norm();
-      if((effectors[0].pos - zp).norm() > dist_to_e0) {
-	/* Subject is closer to effectors[0] than the zero point -> part of the effectors[0]--zp curve. */
-	adjusted_effectors.push_back({dist_to_zp / (dist_to_e0 + dist_to_zp),effectors[0].H,{}, {} });
+      const Eigen::Vector3d dir_vec = e_pos.pos - e_neg.pos;
+
+      const Eigen::Vector3d zero_p = e_neg.pos + zero_t * dir_vec;
+
+      const auto neg_side_t = zero_t - middle_ratio / 2.0;
+      const auto pos_side_t = zero_t + middle_ratio / 2.0;
+
+      const auto H_interval = e_neg.H + e_pos.H;
+      retval.neg_side_H = e_neg.H + neg_side_t * H_interval;
+      retval.pos_side_H = e_neg.H + pos_side_t * H_interval;
+      
+      if (neg_side_t > 0) { 
+	const Eigen::Vector3d neg_side_point = e_neg.pos + neg_side_t * dir_vec;
+	retval.neg_side_sp = neg_side_point;
       }
       else {
-	/* Subject is closer to effectors[1] than the zero point -> part of the effectors[1]--zp curve. */
-	adjusted_effectors.push_back({dist_to_zp / (dist_to_e1 + dist_to_zp),effectors[1].H});
+	retval.neg_side_sp = common::average({zero_p, e_neg.pos});
       }
+
+      if (pos_side_t < 1) {
+	const Eigen::Vector3d pos_side_point = e_neg.pos + pos_side_t * dir_vec;
+	retval.pos_side_sp = pos_side_point;
+      }
+      else {
+	retval.neg_side_sp = common::average({zero_p, e_pos.pos});
+      }
+
+      
+      
+      return retval;
+    };
+
+
+    std::vector<EffectorExtra> adjusted_effectors;
+    double alpha = common::settings::log_aesthetic_alpha;
+    
+    if(effectors.size() == 2) {
+      if (common::settings::log_aesthetic_alpha < 0) {
+	const auto zp = zero_point(effectors[0], effectors[1]);
+
+	const auto dist_to_e0 = (effectors[0].pos - effectors[0].subject_pos).norm();
+	const auto dist_to_e1 = (effectors[1].pos - effectors[0].subject_pos).norm();
+	const auto dist_to_zp = (zp - effectors[0].subject_pos).norm();
+	if((effectors[0].pos - zp).norm() > dist_to_e0) {
+	  /* Subject is closer to effectors[0] than the zero point -> part of the effectors[0]--zp curve. */
+	  adjusted_effectors.push_back({dist_to_zp / (dist_to_e0 + dist_to_zp),effectors[0].H,{}, {} });
+	}
+	else {
+	  /* Subject is closer to effectors[1] than the zero point -> part of the effectors[1]--zp curve. */
+	  adjusted_effectors.push_back({dist_to_zp / (dist_to_e1 + dist_to_zp),effectors[1].H});
+	}
+      }
+      else {
+	const auto sps = trislice_points(effectors[0], effectors[1]);
+	const auto& rp = effectors[0].subject_pos;
+	const double dist_to_start = (rp - effectors[0].pos).norm();
+	const double neg_side_to_start = (sps.neg_side_sp - sps.start).norm();
+	const double pos_side_to_start = (sps.pos_side_sp - sps.start).norm();
+	
+	if(dist_to_start < neg_side_to_start) {
+	  adjusted_effectors.push_back({1.0 - (dist_to_start / neg_side_to_start),effectors[0].H});
+	  adjusted_effectors.push_back({dist_to_start / neg_side_to_start, sps.neg_side_H});
+	}
+	else if (dist_to_start < pos_side_to_start) {
+	  const double middle_end = pos_side_to_start - neg_side_to_start;
+	  const double rp_corrigated = dist_to_start - neg_side_to_start;
+	  adjusted_effectors.push_back({rp_corrigated / middle_end, sps.pos_side_H});
+	  adjusted_effectors.push_back({1.0 - rp_corrigated / middle_end, sps.neg_side_H});
+	  alpha = -1;
+	}
+	else {
+	  const double interval_end = 1.0 - pos_side_to_start;
+	  const double rp_corrigated = dist_to_start - pos_side_to_start;
+	  adjusted_effectors.push_back({1.0 - rp_corrigated / interval_end, sps.pos_side_H});
+	  adjusted_effectors.push_back({rp_corrigated / interval_end, effectors[1].H});
+	}
+      }
+      
     }
     else {
       const Eigen::Vector3d normal = (effectors[0].pos - effectors[1].pos).cross(effectors[2].pos - effectors[1].pos);
-
+      if (common::settings::log_aesthetic_alpha < 0) { //todo
       
-      if (effectors[1].H > 0) {
-	/* N P P */
-	const auto zp1 = zero_point(effectors[0], effectors[1]);
-	const auto zp2 = zero_point(effectors[0], effectors[2]);
+	if (effectors[1].H > 0) {
+	  /* N P P */
+	  const auto zp1 = zero_point(effectors[0], effectors[1]);
+	  const auto zp2 = zero_point(effectors[0], effectors[2]);
 
-	const Eigen::Vector3d towards_one_side = normal.cross(zp1 - zp2);
+	  const Eigen::Vector3d towards_one_side = normal.cross(zp1 - zp2);
 
-	const bool neg_side = towards_one_side.dot(effectors[0].pos - zp2) > 0;
-	const bool examined_side = towards_one_side.dot(effectors[0].subject_pos - zp2) > 0;
+	  const bool neg_side = towards_one_side.dot(effectors[0].pos - zp2) > 0;
+	  const bool examined_side = towards_one_side.dot(effectors[0].subject_pos - zp2) > 0;
 
-	const bool on_neg_side = neg_side == examined_side;
+	  const bool on_neg_side = neg_side == examined_side;
 
-	/*
-      if((effectors[0].d_id == 14 || effectors[0].d_id == 17 || effectors[0].d_id == 22) &&
-	 (effectors[1].d_id == 14 || effectors[1].d_id == 17 || effectors[1].d_id == 22) &&
-	 (effectors[2].d_id == 14 || effectors[2].d_id == 17 || effectors[2].d_id == 22))
-	{
-	  std::cout << "***" << std::endl;
-	  //std::cout << adjusted_effectors[0].H<<" "<<(adjusted_effectors.size() == 2 ? adjusted_effectors[1].H : 99) << std::endl;
-	  std::cout <<on_neg_side  << std::endl;
-	}
-	*/
 	
-	if(on_neg_side) {
-	  const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos, effectors[0].pos, zp1, zp2);
-	  adjusted_effectors.push_back({bary_coords[0], effectors[0].H});
-	} else {
-	  const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos, effectors[1].pos, zp1, zp2, effectors[2].pos);
-	  adjusted_effectors.push_back({bary_coords[0], effectors[1].H});
-	  adjusted_effectors.push_back({bary_coords[3], effectors[2].H});
+	  if(on_neg_side) {
+	    const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos, effectors[0].pos, zp1, zp2);
+	    adjusted_effectors.push_back({bary_coords[0], effectors[0].H});
+	  } else {
+	    const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos, effectors[1].pos, zp1, zp2, effectors[2].pos);
+	    adjusted_effectors.push_back({bary_coords[0], effectors[1].H});
+	    adjusted_effectors.push_back({bary_coords[3], effectors[2].H});
+	  }
+	}
+	else {
+	  /* N N P */
+
+	  const auto zp1 = zero_point(effectors[0], effectors[2]);
+	  const auto zp2 = zero_point(effectors[1], effectors[2]);
+
+	  const Eigen::Vector3d towards_one_side = normal.cross(zp1 - zp2);
+
+	  const bool pos_side = towards_one_side.dot(effectors[2].pos - zp2) > 0;
+	  const bool examined_side = towards_one_side.dot(effectors[0].subject_pos - zp2) > 0;
+
+	  const bool on_pos_side = pos_side == examined_side;
+	
+	  if(on_pos_side) {
+	    const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos, effectors[2].pos, zp1, zp2);
+	    adjusted_effectors.push_back({bary_coords[0], effectors[2].H});
+	  } else {
+	    const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos, effectors[0].pos, zp1, zp2, effectors[1].pos);
+	    adjusted_effectors.push_back({bary_coords[0], effectors[0].H});
+	    adjusted_effectors.push_back({bary_coords[3], effectors[1].H});
+	  }
+	
 	}
       }
       else {
-	/* N N P */
+	constexpr double eps = 1e-10;
 
-	const auto zp1 = zero_point(effectors[0], effectors[2]);
-	const auto zp2 = zero_point(effectors[1], effectors[2]);
 
-	const Eigen::Vector3d towards_one_side = normal.cross(zp1 - zp2);
+	if (effectors[1].H > 0) {
+	  /* N P P */
+	  const auto slice_points1 = trislice_points(effectors[0], effectors[1]);
+	  const auto slice_points2 = trislice_points(effectors[0], effectors[2]);
 
-	const bool pos_side = towards_one_side.dot(effectors[2].pos - zp2) > 0;
-	const bool examined_side = towards_one_side.dot(effectors[0].subject_pos - zp2) > 0;
+	  const Eigen::Vector3d sep_line_1 = slice_points1.neg_side_sp - slice_points2.neg_side_sp;
+	  if(sep_line_1.norm() > eps) {
+	    const Eigen::Vector3d towards_one_side = normal.cross(sep_line_1);
+	    const bool neg_side = towards_one_side.dot(effectors[0].pos - slice_points2.neg_side_sp) > 0;
+	    const bool examined_side = towards_one_side.dot(effectors[0].subject_pos - slice_points2.neg_side_sp) > 0;
+	    const bool on_neg_side = neg_side == examined_side;
 
-	const bool on_pos_side = pos_side == examined_side;
-	
-	if(on_pos_side) {
-	  const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos, effectors[2].pos, zp1, zp2);
-	  adjusted_effectors.push_back({bary_coords[0], effectors[2].H});
-	} else {
-	  const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos, effectors[0].pos, zp1, zp2, effectors[1].pos);
-	  adjusted_effectors.push_back({bary_coords[0], effectors[0].H});
-	  adjusted_effectors.push_back({bary_coords[3], effectors[1].H});
+	    if (on_neg_side) {
+	      const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos,
+								      effectors[0].pos,
+								      slice_points1.neg_side_sp,
+								      slice_points2.neg_side_sp);
+	      
+	      adjusted_effectors.push_back({bary_coords[0], effectors[0].H});
+	      adjusted_effectors.push_back({bary_coords[1], slice_points1.neg_side_H});
+	      adjusted_effectors.push_back({bary_coords[2], slice_points2.neg_side_H});
+
+	      return logAestheticTargetCurvatureCore(adjusted_effectors, alpha);
+	    }
+	  } 
+	  /* Either there is no neg side or subject is not on it */
+	  const Eigen::Vector3d sep_line_2 = slice_points1.pos_side_sp - slice_points2.pos_side_sp;
+	  const Eigen::Vector3d towards_one_side = normal.cross(sep_line_2);
+	  const bool middle_side = towards_one_side.dot(effectors[0].pos - slice_points2.pos_side_sp) > 0;
+	  const bool examined_side = towards_one_side.dot(effectors[0].subject_pos - slice_points2.pos_side_sp) > 0;
+	  const bool on_middle_side = middle_side == examined_side;
+
+	  if (on_middle_side) {
+	    const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos,
+								    slice_points1.pos_side_sp,
+								    slice_points2.pos_side_sp,
+								    slice_points2.neg_side_sp,
+								    slice_points1.neg_side_sp);
+	    alpha = -1.0;
+
+	    adjusted_effectors.push_back({bary_coords[0], slice_points1.pos_side_H});
+	    adjusted_effectors.push_back({bary_coords[1], slice_points2.pos_side_H});
+	    adjusted_effectors.push_back({bary_coords[2], slice_points2.neg_side_H});
+	    adjusted_effectors.push_back({bary_coords[3], slice_points1.neg_side_H});
+	    
+	    return logAestheticTargetCurvatureCore(adjusted_effectors, alpha);
+	  }
+
+	  const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos,
+								  slice_points1.end,
+								  slice_points1.pos_side_sp,
+								  slice_points2.pos_side_sp,
+								  slice_points2.end);
+
+	  adjusted_effectors.push_back({bary_coords[0], effectors[1].H});
+	  adjusted_effectors.push_back({bary_coords[1], slice_points1.pos_side_H});
+	  adjusted_effectors.push_back({bary_coords[2], slice_points2.pos_side_H});
+	  adjusted_effectors.push_back({bary_coords[3], effectors[2].H});
+	  
+	  return logAestheticTargetCurvatureCore(adjusted_effectors, alpha);
+	  
 	}
-	
+	else {
+	  /* N N P */
+	  const auto slice_points1 = trislice_points(effectors[0], effectors[2]);
+	  const auto slice_points2 = trislice_points(effectors[1], effectors[2]);
+
+
+	  const Eigen::Vector3d sep_line_1 = slice_points1.pos_side_sp - slice_points2.pos_side_sp;
+	  if(sep_line_1.norm() > eps) {
+	    const Eigen::Vector3d towards_one_side = normal.cross(sep_line_1);
+	    const bool pos_side = towards_one_side.dot(effectors[2].pos - slice_points2.pos_side_sp) > 0;
+	    const bool examined_side = towards_one_side.dot(effectors[0].subject_pos - slice_points2.pos_side_sp) > 0;
+	    const bool on_pos_side = pos_side == examined_side;
+
+	    if (on_pos_side) {
+	      const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos,
+								      effectors[2].pos,
+								      slice_points1.pos_side_sp,
+								      slice_points2.pos_side_sp);
+	      adjusted_effectors.push_back({bary_coords[0], effectors[2].H});
+	      adjusted_effectors.push_back({bary_coords[1], slice_points1.pos_side_H});
+	      adjusted_effectors.push_back({bary_coords[2], slice_points2.pos_side_H});
+
+	      return logAestheticTargetCurvatureCore(adjusted_effectors, alpha);
+	    }
+	  } 
+	  /* Either there is no pos side or subject is not on it */
+	  const Eigen::Vector3d sep_line_2 = slice_points1.neg_side_sp - slice_points2.neg_side_sp;
+	  const Eigen::Vector3d towards_one_side = normal.cross(sep_line_2);
+	  const bool middle_side = towards_one_side.dot(effectors[2].pos - slice_points2.neg_side_sp) > 0;
+	  const bool examined_side = towards_one_side.dot(effectors[0].subject_pos - slice_points2.neg_side_sp) > 0;
+	  const bool on_middle_side = middle_side == examined_side;
+
+	  if (on_middle_side) {
+	    const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos,
+								    slice_points1.pos_side_sp,
+								    slice_points2.pos_side_sp,
+								    slice_points2.neg_side_sp,
+								    slice_points1.neg_side_sp);
+	    alpha = -1.0;
+
+	    adjusted_effectors.push_back({bary_coords[0], slice_points1.pos_side_H});
+	    adjusted_effectors.push_back({bary_coords[1], slice_points2.pos_side_H});
+	    adjusted_effectors.push_back({bary_coords[2], slice_points2.neg_side_H});
+	    adjusted_effectors.push_back({bary_coords[3], slice_points1.neg_side_H});
+	    
+	    return logAestheticTargetCurvatureCore(adjusted_effectors, alpha);
+	  }
+
+	  const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos,
+								  slice_points1.start,
+								  slice_points1.neg_side_sp,
+								  slice_points2.neg_side_sp,
+								  slice_points2.start);
+
+	  adjusted_effectors.push_back({bary_coords[0], effectors[0].H});
+	  adjusted_effectors.push_back({bary_coords[1], slice_points1.neg_side_H});
+	  adjusted_effectors.push_back({bary_coords[2], slice_points2.neg_side_H});
+	  adjusted_effectors.push_back({bary_coords[3], effectors[1].H});
+	  
+	  return logAestheticTargetCurvatureCore(adjusted_effectors, alpha);
+	}
       }
 
-
     }
-
-
-    return logAestheticTargetCurvatureCore(adjusted_effectors);
+    return logAestheticTargetCurvatureCore(adjusted_effectors, alpha);
   }
   
   DiscreteFairer::TargetCurvature DiscreteFairer::calcLogAestheticTargetCurvature(const std::vector<EffectorExtra>& weighed_effectors) const

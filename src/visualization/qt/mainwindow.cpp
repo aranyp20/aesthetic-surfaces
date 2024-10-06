@@ -81,7 +81,7 @@ void MainWindow::initWidgets()
   size_t tmpi = 0;
   for (const auto& file_option : file_options) {
     ui->modelSelectionComboBox->addItem(QString::fromStdString(file_option), QVariant((int)tmpi++));
-    if (file_option == "./deformed_ico.obj") {
+    if (file_option == common::settings::default_model) {
       ui->modelSelectionComboBox->setCurrentIndex(tmpi-1);
     }
   }
@@ -94,6 +94,8 @@ void MainWindow::initWidgets()
   ui->curvatureSelectorComboBox->addItem(QString::fromStdString(common::settings::curvature_name.at(common::settings::GAUSSIAN)), QVariant((int)common::settings::GAUSSIAN));
 
   ui->curvatureSelectorComboBox->setCurrentIndex(common::settings::selected_curvature);
+
+  ui->algSelectorComboBox->setCurrentIndex(common::settings::selected_alg);
   
   ui->radioButton->setChecked(true);
   ui->subdivisionCountBox->setValue(1);
@@ -103,7 +105,6 @@ void MainWindow::initWidgets()
   ui->vertexIdsCheckBox->setChecked(common::settings::show_vertex_ids);
 
 
-  changeAlgorithm(0);
 
   //ui->exportModelNameLineEdit->setPlaceholderText("filename.txt");
 

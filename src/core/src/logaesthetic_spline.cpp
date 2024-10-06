@@ -170,8 +170,8 @@ namespace core {
 
       vhs.push_back(retval.add_vertex(common::BaseMesh::Point(0, spline[i][0], spline[i][1])));
     }
-    
 
+    
 
     
     

@@ -2,6 +2,7 @@
 
 #include "curvaturecalculator.h"
 #include "mesh.h"
+#include "settings.h"
 #include "subdivider.h"
 #include <functional>
 
@@ -49,7 +50,8 @@ public:
 
 
   /* Precondition: weights are all same signed */
-  TargetCurvature logAestheticTargetCurvatureCore(const std::vector<EffectorExtra>& effectors) const;
+  TargetCurvature logAestheticTargetCurvatureCore(const std::vector<EffectorExtra>& effectors,
+						  double alpha = common::settings::log_aesthetic_alpha) const;
 
   /* Precondition: negative and positive weight(s) are present as well.
      Precondition II: ordered by curvature. */
