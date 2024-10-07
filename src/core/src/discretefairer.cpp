@@ -10,6 +10,7 @@
 #include <QtCore/qnamespace.h>
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <functional>
 #include <iostream>
@@ -123,6 +124,12 @@ namespace core {
       
       const auto bar_of_vertex = [P](const Eigen::Vector3d& pi, const Eigen::Vector3d& pi0, const Eigen::Vector3d& pi2) {
 
+
+	if (std::isnan(common::math::heron(pi, pi0, pi2) / (common::math::heron(pi, pi0, P) * common::math::heron(pi, pi2, P)))) {
+	  //std::cout << "======" << std::endl;
+	  //std::cout<<pi<<";"<<pi0<<";"<<P<<std::endl;
+	}
+	
 	return common::math::heron(pi, pi0, pi2) / (common::math::heron(pi, pi0, P) * common::math::heron(pi, pi2, P));
 	
       };
@@ -583,16 +590,27 @@ namespace core {
   }
 
 
-  DiscreteFairer::TargetCurvature DiscreteFairer::logAestheticTargetCurvatureCore(const std::vector<EffectorExtra>& effectors, const double alpha) const
+  DiscreteFairer::TargetCurvature DiscreteFairer::logAestheticTargetCurvatureCore(const std::vector<EffectorExtra>& effectors, const double alpha, const bool enable_flipping) const
   {
     TargetCurvature retval;
-    const double sign = effectors[0].H < 0 ? -1 : 1;
+    const double sign = effectors[0].H < 0 && enable_flipping ? -1 : 1;
     for(const auto& effector : effectors) {
       retval.main += std::powf(effector.H * sign, -alpha) * effector.weight;
     }
       
     retval.main = std::powf(retval.main, -1.0 / alpha) * sign;
 
+    if (std::isnan(retval.main)) {
+      //std::cout << "++++++++++++++++" << std::endl;
+      for(auto effector : effectors) {
+	//std::cout << effector.H<<" "<<effector.weight << std::endl;
+      }
+      //std::cout << alpha << std::endl;
+      //std::cout << sign << std::endl;
+      //std::cout << retval.main << std::endl;
+    }
+    
+    
     return retval;
   }
 
@@ -602,9 +620,11 @@ namespace core {
 
     Eigen::Vector3d neg_side_sp;
     double neg_side_H;
+    bool neg_side_on_end = false;
     
     Eigen::Vector3d pos_side_sp;
     double pos_side_H;
+    bool pos_side_on_end = false;
     
     Eigen::Vector3d end;
   };
@@ -633,10 +653,10 @@ namespace core {
 
       const Eigen::Vector3d zero_p = e_neg.pos + zero_t * dir_vec;
 
-      const auto neg_side_t = zero_t - middle_ratio / 2.0;
-      const auto pos_side_t = zero_t + middle_ratio / 2.0;
+      const auto neg_side_t = std::max(zero_t - middle_ratio / 2.0, 0.0);
+      const auto pos_side_t = std::min(zero_t + middle_ratio / 2.0, 1.0);
 
-      const auto H_interval = e_neg.H + e_pos.H;
+      const auto H_interval = e_pos.H - e_neg.H;
       retval.neg_side_H = e_neg.H + neg_side_t * H_interval;
       retval.pos_side_H = e_neg.H + pos_side_t * H_interval;
       
@@ -645,7 +665,9 @@ namespace core {
 	retval.neg_side_sp = neg_side_point;
       }
       else {
-	retval.neg_side_sp = common::average({zero_p, e_neg.pos});
+	//retval.neg_side_sp = common::average({zero_p, e_neg.pos});
+	retval.neg_side_sp = e_neg.pos;
+	retval.neg_side_on_end = true;
       }
 
       if (pos_side_t < 1) {
@@ -653,9 +675,12 @@ namespace core {
 	retval.pos_side_sp = pos_side_point;
       }
       else {
-	retval.neg_side_sp = common::average({zero_p, e_pos.pos});
+	//retval.pos_side_sp = common::average({zero_p, e_pos.pos});
+	retval.pos_side_sp = e_pos.pos;
+	retval.pos_side_on_end = true;
       }
 
+      //std::cout <<neg_side_t<<" "<<pos_side_t<<" "<< e_neg.H<<" "<<H_interval<<" "<< retval.neg_side_H<<" "<<retval.pos_side_H << std::endl;
       
       
       return retval;
@@ -698,6 +723,7 @@ namespace core {
 	  adjusted_effectors.push_back({rp_corrigated / middle_end, sps.pos_side_H});
 	  adjusted_effectors.push_back({1.0 - rp_corrigated / middle_end, sps.neg_side_H});
 	  alpha = -1;
+	  return logAestheticTargetCurvatureCore(adjusted_effectors, alpha, false);
 	}
 	else {
 	  const double interval_end = 1.0 - pos_side_to_start;
@@ -759,7 +785,7 @@ namespace core {
 	}
       }
       else {
-	constexpr double eps = 1e-10;
+	constexpr double eps = 1e-8;
 
 
 	if (effectors[1].H > 0) {
@@ -768,7 +794,7 @@ namespace core {
 	  const auto slice_points2 = trislice_points(effectors[0], effectors[2]);
 
 	  const Eigen::Vector3d sep_line_1 = slice_points1.neg_side_sp - slice_points2.neg_side_sp;
-	  if(sep_line_1.norm() > eps) {
+	  if(sep_line_1.norm() > eps && !slice_points1.neg_side_on_end && !slice_points2.neg_side_on_end) {
 	    const Eigen::Vector3d towards_one_side = normal.cross(sep_line_1);
 	    const bool neg_side = towards_one_side.dot(effectors[0].pos - slice_points2.neg_side_sp) > 0;
 	    const bool examined_side = towards_one_side.dot(effectors[0].subject_pos - slice_points2.neg_side_sp) > 0;
@@ -779,7 +805,13 @@ namespace core {
 								      effectors[0].pos,
 								      slice_points1.neg_side_sp,
 								      slice_points2.neg_side_sp);
-	      
+
+	      if (std::isnan(bary_coords[0])) {
+		std::cout << "ha: "<<sep_line_1.norm()<<" "<<effectors[0].pos<<";"<<
+		  slice_points1.neg_side_sp<<";"<<
+		  slice_points2.neg_side_sp << std::endl;
+		std::cout << slice_points1.neg_side_on_end<<" "<<slice_points2.neg_side_on_end << std::endl;
+	      }
 	      adjusted_effectors.push_back({bary_coords[0], effectors[0].H});
 	      adjusted_effectors.push_back({bary_coords[1], slice_points1.neg_side_H});
 	      adjusted_effectors.push_back({bary_coords[2], slice_points2.neg_side_H});
@@ -807,7 +839,7 @@ namespace core {
 	    adjusted_effectors.push_back({bary_coords[2], slice_points2.neg_side_H});
 	    adjusted_effectors.push_back({bary_coords[3], slice_points1.neg_side_H});
 	    
-	    return logAestheticTargetCurvatureCore(adjusted_effectors, alpha);
+	    return logAestheticTargetCurvatureCore(adjusted_effectors, alpha, false);
 	  }
 
 	  const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos,
@@ -831,7 +863,7 @@ namespace core {
 
 
 	  const Eigen::Vector3d sep_line_1 = slice_points1.pos_side_sp - slice_points2.pos_side_sp;
-	  if(sep_line_1.norm() > eps) {
+	  if(sep_line_1.norm() > eps && !slice_points1.pos_side_on_end && !slice_points2.pos_side_on_end) {
 	    const Eigen::Vector3d towards_one_side = normal.cross(sep_line_1);
 	    const bool pos_side = towards_one_side.dot(effectors[2].pos - slice_points2.pos_side_sp) > 0;
 	    const bool examined_side = towards_one_side.dot(effectors[0].subject_pos - slice_points2.pos_side_sp) > 0;
@@ -869,7 +901,7 @@ namespace core {
 	    adjusted_effectors.push_back({bary_coords[2], slice_points2.neg_side_H});
 	    adjusted_effectors.push_back({bary_coords[3], slice_points1.neg_side_H});
 	    
-	    return logAestheticTargetCurvatureCore(adjusted_effectors, alpha);
+	    return logAestheticTargetCurvatureCore(adjusted_effectors, alpha, false);
 	  }
 
 	  const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos,

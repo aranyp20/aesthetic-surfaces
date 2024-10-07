@@ -95,7 +95,7 @@ void MainWindow::initWidgets()
 
   ui->curvatureSelectorComboBox->setCurrentIndex(common::settings::selected_curvature);
 
-  ui->algSelectorComboBox->setCurrentIndex(common::settings::selected_alg);
+  ui->algSelectorComboBox->setCurrentIndex(2);
   
   ui->radioButton->setChecked(true);
   ui->subdivisionCountBox->setValue(1);

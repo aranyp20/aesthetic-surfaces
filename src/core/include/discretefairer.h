@@ -51,7 +51,8 @@ public:
 
   /* Precondition: weights are all same signed */
   TargetCurvature logAestheticTargetCurvatureCore(const std::vector<EffectorExtra>& effectors,
-						  double alpha = common::settings::log_aesthetic_alpha) const;
+						  double alpha = common::settings::log_aesthetic_alpha,
+						  bool enable_flipping = true) const;
 
   /* Precondition: negative and positive weight(s) are present as well.
      Precondition II: ordered by curvature. */

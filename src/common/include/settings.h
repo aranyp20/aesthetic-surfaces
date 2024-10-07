@@ -29,7 +29,7 @@ namespace common {
       {GAUSSIAN, "Gaussian"}
     };
     
-    inline double log_aesthetic_alpha = -1.0;
+    inline double log_aesthetic_alpha = 2.1;
     inline Algorithm selected_alg = Algorithm::LOG_AESTHETIC;
     inline CurvatureType selected_curvature = CurvatureType::MEAN;
     inline bool sync = false;
