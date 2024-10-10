@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <vector>
 #include <complex>
-
+#include "planar_la.h"
 
 namespace core {
 
@@ -23,7 +23,7 @@ namespace core {
       const double alpha = common::settings::log_aesthetic_alpha;
       constexpr double c0 = 1;
       constexpr double c1 = 0;
-
+      
       if(s==0) {
 	return 0;
       }
@@ -42,38 +42,10 @@ namespace core {
       return (alpha * std::pow(c0 * s + c1, 1.0 - 1.0 / alpha)) / ((alpha - 1) * c0) + c2;
     }
 
-    struct LAParams
-    {
-      double c0, c1, c2, lambda;
-      double s0;
-      double alpha = common::settings::log_aesthetic_alpha;
-    };
 
-    double calcTheta(const LAParams& la, const double s)
+    double calcTheta(const PlanarLA& la, const double s)
     {
       return la.alpha * std::powf(la.c0 * s + la.c1, 1.0 - 1.0/la.alpha) / ((la.alpha - 1.0) * la.c0) + la.c2;
-    }
-    
-    Eigen::Vector2d logAestheticIncrementer(const LAParams& la_params, const double s, const double ds)
-    {
-      const auto theta = calcTheta(la_params, s);
-      return ds * Eigen::Vector2d(std::cosf(theta), std::sinf(theta));
-    }
-    
-    double bisection_computeThetaEDash(const double lambda, const double s0)
-    {
-      const double ds = 0.01;
-      const size_t step_count = s0 / ds;
-
-      Eigen::Vector2d P0(0,0);
-      for(size_t i = 0; i < step_count; i++) {
-	
-      }
-    }
-
-    double bisection_computeThetaFDash(const double lambda)
-    {
-      
     }
 
     double bisection_computeThetaD(const Eigen::Vector2d& p0,
@@ -100,7 +72,67 @@ namespace core {
       return std::acosf((p0-p2).normalized().dot((p1-p2).normalized()));
     }
     
-    double bisection(const double alpha, const int maxIteration, const double thetaD, const double thetaE, const double thetaF, const double s0)
+    Eigen::Vector2d logAestheticIncrementer(const PlanarLA& la_params, const double s, const double ds)
+    {
+      const auto theta = calcTheta(la_params, s);
+      std::cout << "ez nulla: "<<theta << std::endl;
+      return ds * Eigen::Vector2d(std::cosf(theta), std::sinf(theta));
+    }
+
+    double computeS0(const double lambda, const double thetaD)
+    {
+      const PlanarLA la(common::settings::log_aesthetic_alpha, lambda);
+      const double exponent = -1. + 1./la.alpha;
+      const double base = (thetaD - la.c2) * (la.alpha - 1) * la.c0 / la.alpha;
+      return (std::powf(base, exponent) - la.c1) / la.c0;
+	
+    }
+
+    Eigen::Vector2d computeP1(const Eigen::Vector2d P2, const double thetaD)
+    {
+      return Eigen::Vector2d((P2 + Eigen::Vector2d(std::cosf(thetaD), std::sinf(thetaD)) * (-P2[1] / std::sinf(thetaD)))[0], 0);
+    }
+
+    std::array<Eigen::Vector2d, 3> computeTriangle(const double lambda, const double thetaD)
+    {
+      const double s0 = computeS0(lambda, thetaD);
+
+      const PlanarLA la(common::settings::log_aesthetic_alpha, lambda);
+
+      const double ds = 0.001;
+      const size_t step_count = s0 / ds;
+
+
+      Eigen::Vector2d P2(0,0);
+
+      double s = 0;
+      for(size_t i = 0; i < step_count; i++) {
+	s = i * ds;
+	P2 += logAestheticIncrementer(la, s, ds);
+      }
+
+      const auto P1 = computeP1(P2, thetaD);
+
+      const Eigen::Vector2d P0(0,0);
+
+      return {P0, P1, P2};
+    }
+    
+    double bisection_computeThetaEDash(const double lambda, const double thetaD)
+    {
+      const auto triangle = computeTriangle(lambda, thetaD);
+
+      return bisection_computeThetaE(triangle[0], triangle[1], triangle[2]);
+    }
+
+    double bisection_computeThetaFDash(const double lambda, const double thetaD)
+    {
+      const auto triangle = computeTriangle(lambda, thetaD);
+
+      return bisection_computeThetaF(triangle[0], triangle[1], triangle[2]);
+    }
+    
+    double bisection(const double alpha, const int maxIteration, const double thetaD, const double thetaE, const double thetaF)
     {
       constexpr double EPS = 1e-5;
       
@@ -112,8 +144,8 @@ namespace core {
       double lambda = (lmin + lmax) * 0.5;
       do {
 	if (alpha <= 1)
-	  f = thetaE - bisection_computeThetaEDash(lambda, s0);
-	else f = thetaF - bisection_computeThetaFDash(lambda);
+	  f = thetaE - bisection_computeThetaEDash(lambda, thetaD);
+	else f = thetaF - bisection_computeThetaFDash(lambda, thetaD);
 	if (std::fabs(f) < EPS)
 	  return lambda; // found
 	double pLambda = lambda;
@@ -198,8 +230,7 @@ namespace core {
 
     std::vector<common::BaseMesh::VertexHandle> vhs;
 
-    std::complex<double> P(0,0); //lehet nem is kene complex
-    vhs.push_back(retval.add_vertex(common::BaseMesh::Point(0, P.real(), P.imag())));
+    vhs.push_back(retval.add_vertex(common::BaseMesh::Point(0, 0, 0)));
 
 
 
@@ -209,14 +240,14 @@ namespace core {
     };
 
     double s = 0;
-    const double ds = 1e-5;
+    const double ds = 1e-2;
 
 
     double theta = 0;
 
-    std::complex<double> _P0(0,0);
-    std::complex<double> _P2(3,3);
-    std::complex<double> _P1(1,0);
+    std::complex<double> _P0(-3,3);
+    std::complex<double> _P2(0,0);
+    std::complex<double> _P1(-1,0);
 
     const auto P0 = complex_to_vec2(_P0);
     const auto P1 = complex_to_vec2(_P1);
@@ -227,32 +258,25 @@ namespace core {
     const auto thetaF = bisection_computeThetaF(P0, P1, P2);
 
     
-    double c0, c1, c2;
 
-    double lambda = 1; //todo
     
-    c0 = alpha * lambda;
-    c1 = 1;
-    c2 = 1.0 / ((alpha - 1) * lambda);
 
       
-    const double s0 = (std::powf(((thetaD - c2) * (alpha - 1) * c0 / alpha), 1.0 / (1.0 - 1.0 / alpha)) - c1) / c0;
 
-    lambda = bisection(alpha, 10, thetaD, thetaE, thetaF, s0);
-
-
+    const auto lambda = 5.0;// bisection(alpha, 10, thetaD, thetaE, thetaF);
+    const PlanarLA la(alpha, lambda);
+    const auto s0 = 1.0;//computeS0(lambda, thetaD);
     const size_t step_count = s0 / ds;
+    std::cout << thetaD<<" "<<s0<<" "<<step_count << std::endl;
+    Eigen::Vector2d eval_P;
     
     for(size_t i = 0 ; i < step_count; i++){
       s = i * ds;
       
-      
-      P.real(P.real() + std::cosf(theta) * ds);
-      P.imag(P.imag() + std::sinf(theta) * ds);
 
-      theta = d_theta2(s, c0, c1, c2);
-      
-      spline.emplace_back(P.real(), P.imag());
+      eval_P += logAestheticIncrementer(la, s, ds);
+
+      spline.push_back(eval_P);
 
       vhs.push_back(retval.add_vertex(common::BaseMesh::Point(0, spline[i][0], spline[i][1])));
     }

@@ -260,10 +260,8 @@ void MainWindow::exportModel()
 
 void MainWindow::generateLogAesthetic()
 {
-  //core::ParametricLogAesthetic1 surf;
   core::LogAestheticSpline surf;
-  //m_log_gen = std::make_shared<common::BaseMesh>(surf.tessellate(50));
-  m_log_gen = std::make_shared<common::BaseMesh>(surf.execute());
+  m_log_gen = std::make_shared<common::BaseMesh>(surf.execute2());
   ui->openGLWidget->setPrintable(m_log_gen);
   ui->openGLWidget->update();
 }

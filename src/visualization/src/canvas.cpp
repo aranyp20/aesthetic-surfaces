@@ -10,7 +10,7 @@
 #include <QtCore/qnamespace.h>
 
 
-//#define SPLINE_RENDER
+#define SPLINE_RENDER
 
 Canvas::Canvas(QWidget *parent) : QOpenGLWidget(parent)
 {
