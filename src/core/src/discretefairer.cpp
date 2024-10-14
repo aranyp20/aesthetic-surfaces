@@ -327,12 +327,7 @@ namespace core {
       
       Eigen::Vector3d new_pos = Q;
       if(common::settings::selected_curvature == common::settings::GAUSSIAN) {
-	bool negative_positive = false;
-	if(H.main < 0) {
-	  negative_positive = true;
-	  H.main = -H.main;
-	}
-	new_pos = DiscreteFairer::Q_Gaussian(e_neighbors, normal, H, fe, Q, Q0, cc.getLastM(), negative_positive);
+	new_pos = DiscreteFairer::Q_Gaussian(e_neighbors, normal, H, fe, Q, Q0, cc.getLastM(), H.negative_positive);
       }
       else if(common::settings::selected_curvature == common::settings::MEAN) {
 	if(iteratable.idx()==50 || true){
@@ -1047,23 +1042,55 @@ namespace core {
       
     return retval;
   }
-  
+
+  DiscreteFairer::TargetCurvature DiscreteFairer::calcGaussianTargetCurvature(const std::vector<EffectorExtra>& weighed_effectors) const
+  {
+    TargetCurvature retval;
+
+    bool all_saddle = true;
+    for(const auto& effector : weighed_effectors) {
+      if(effector.H >= 0) {
+	all_saddle = false;
+      }
+    }
+    /*
+    if(all_saddle){
+      for(const auto& weighed_effector : weighed_effectors) {
+	retval.main += weighed_effector.H * weighed_effector.weight;
+      }
+
+      return retval;
+    }
+    */
+
+    for(const auto& effector : weighed_effectors) {
+      auto adjusted_H = effector.H;//std::min(0.0, effector.H);
+      if(effector.negative_positive) {
+	adjusted_H = -adjusted_H;
+      }
+      retval.main += adjusted_H * effector.weight;
+    }
+
+    if(retval.main < 0) {
+      retval.negative_positive = true;
+      retval.main = -retval.main;
+    }
+    
+    return retval;
+  }
   
   DiscreteFairer::TargetCurvature DiscreteFairer::calcTargetCurvature(const std::vector<EffectorExtra>& weighed_effectors) const
   {
 
+    if(common::settings::selected_curvature == common::settings::CurvatureType::GAUSSIAN) {
+      return calcGaussianTargetCurvature(weighed_effectors);
+    }
+    
     TargetCurvature retval;
     switch(common::settings::selected_alg) {      
     case common::settings::Algorithm::BASIC: {
 	for(const auto& weighed_effector : weighed_effectors) {
 	  retval.main += weighed_effector.H * weighed_effector.weight;
-
-
-	  if(weighed_effector.negative_positive) {
-	    //retval.signed_gaussian += 
-	  }
-	  
-	  //retval.signed_gaussian += 
 	}
 	return retval;
       }
@@ -1146,7 +1173,7 @@ namespace core {
 	auto vh = *v_it;
 	if(extended_vertex_static_infos.at(vh).is_original_vertex){
 	  mcc.execute(vh);
-	  vertex_curvature_map[vh] =  getCurvature(mcc);
+	  vertex_curvature_map[vh] = getCurvature(mcc);
 	}
       }
       //cb.postIteration();

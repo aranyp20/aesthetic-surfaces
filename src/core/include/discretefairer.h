@@ -43,7 +43,7 @@ public:
     double k_max = 0;
     double k_min = 0;
 
-    double signed_gaussian = 0;
+    bool negative_positive = false;
   };
 
   struct EffectorExtra
@@ -59,6 +59,8 @@ public:
   };
 
   TargetCurvature calcTargetCurvature(const std::vector<EffectorExtra>& weighed_effectors) const;
+
+  TargetCurvature calcGaussianTargetCurvature(const std::vector<EffectorExtra>& weighed_effectors) const;
 
 
   /* Precondition: weights are all same signed */
