@@ -124,7 +124,7 @@ static Eigen::Vector3d Q(const std::array<Eigen::Vector3d, 6>& p,
 				     const Eigen::Vector3d& normal, TargetCurvature H, const CurvatureCalculator::FundamentalElements& fe,
 				     const Eigen::Vector3d& Q, const Eigen::Vector3d& Q0,
 				     const Eigen::Matrix<double, 5, Eigen::Dynamic>& M,
-				     bool negative_positive);
+				     bool negative_positive, bool all_saddle_try_max);
 public:
 
   void execute(common::MyMesh& mesh, size_t iteration_count, std::function<void(int)> cb);

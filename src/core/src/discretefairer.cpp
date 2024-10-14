@@ -328,7 +328,7 @@ namespace core {
       
       Eigen::Vector3d new_pos = Q;
       if(common::settings::selected_curvature == common::settings::GAUSSIAN) {
-	new_pos = DiscreteFairer::Q_Gaussian(e_neighbors, normal, H, fe, Q, Q0, cc.getLastM(), H.negative_positive);
+	new_pos = DiscreteFairer::Q_Gaussian(e_neighbors, normal, H, fe, Q, Q0, cc.getLastM(), H.negative_positive, false);
       }
       else if(common::settings::selected_curvature == common::settings::MEAN) {
 	if(iteratable.idx()==50 || true){
@@ -1128,7 +1128,7 @@ namespace core {
 	adjusted_H = -adjusted_H;
       }
 
-      if(effector.is_saddle){
+      if(effector.is_saddle && !all_saddle){
 	adjusted_H = 0;
       }
       
@@ -1324,7 +1324,7 @@ namespace core {
   Eigen::Vector3d DiscreteFairer::Q_Gaussian(const std::vector<Eigen::Vector3d>& p,const Eigen::Vector3d& normal, TargetCurvature H,  const CurvatureCalculator::FundamentalElements& fe,
 					     const Eigen::Vector3d& Q, const Eigen::Vector3d& Q0,
 					     const Eigen::Matrix<double, 5 , Eigen::Dynamic>& M,
-					     const bool negative_positive)
+					     const bool negative_positive, const bool all_saddle_try_max)
   {
     bool chose_max = !negative_positive;
 
@@ -1380,9 +1380,14 @@ namespace core {
       const auto t2 = (- b - sqrt(determinant)) / (2 * a);
 
 
-      if(H.all_saddle && false) {
-	t = std::max(t1, t2);
-	std::cout << t1<<" "<<t2 << std::endl;
+
+      if(H.all_saddle) {
+	if(all_saddle_try_max) {
+	  t = std::max(t1, t2);
+	}
+	else {
+	  t = std::min(t1, t2);
+	}
       }
       else {
 	if(chose_max) {
