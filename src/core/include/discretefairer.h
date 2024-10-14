@@ -18,6 +18,7 @@ public:
   {
     double val = 0;
     bool negative_positive = false;
+    bool is_saddle = false;
   };
 
 private:
@@ -44,6 +45,7 @@ public:
     double k_min = 0;
 
     bool negative_positive = false;
+    bool all_saddle = false;
   };
 
   struct EffectorExtra
@@ -55,6 +57,7 @@ public:
     Eigen::Vector3d subject_pos; //TODO out of here
 
     bool negative_positive = false;
+    bool is_saddle = false;
     int d_id;
   };
 

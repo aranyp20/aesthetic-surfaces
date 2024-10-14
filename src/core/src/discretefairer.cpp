@@ -301,6 +301,7 @@ namespace core {
 	ee.pos = common::converter::meshPointToEigen(mesh.point(effector.first));
 	ee.subject_pos = common::converter::meshPointToEigen(mesh.point(iteratable));
 	ee.negative_positive = vertex_curvature_map.at(effector.first).negative_positive;
+	ee.is_saddle = vertex_curvature_map.at(effector.first).is_saddle;
 	ee.d_id = effector.first.idx();
 	effectors_extra.push_back(ee);
       }
@@ -525,15 +526,20 @@ namespace core {
     const auto principle_curvatures = cc.getPrincipleCurvatures();
     //const auto chosen_curvature (std::fabs(principle_curvatures.min_val) < std::fabs(principle_curvatures.max_val) ? principle_curvatures.min_val : principle_curvatures.max_val);
     //return chosen_curvature < 0 ? -std::fabs(cc.getGaussianCurvature()) : std::fabs(cc.getGaussianCurvature());
-
-    DiscreteFairer::ExtendedCurvature retval;
-
-    retval.val = cc.getGaussianCurvature();
     
-    if(cc.getGaussianCurvature() > 0 && principle_curvatures.min_val < 0) {
-      retval.negative_positive = true;
+    DiscreteFairer::ExtendedCurvature retval;
+    
+    retval.val = cc.getGaussianCurvature();
+    retval.negative_positive = false;
+    
+    if(cc.getGaussianCurvature() > 0) {
+      retval.negative_positive = cc.getPrincipleCurvatures().min_val < 0;
+      retval.is_saddle = false;
     }
-
+    else {
+      retval.is_saddle = true;
+    }
+    
     
     return retval;
   }
@@ -1068,12 +1074,18 @@ namespace core {
       if(effector.negative_positive) {
 	adjusted_H = -adjusted_H;
       }
+
+      if(effector.is_saddle){
+	adjusted_H = 0;
+      }
+      
       retval.main += adjusted_H * effector.weight;
     }
 
     if(retval.main < 0) {
       retval.negative_positive = true;
       retval.main = -retval.main;
+      retval.all_saddle = all_saddle;
     }
     
     return retval;
@@ -1313,9 +1325,20 @@ namespace core {
     else {
       const auto t1 = (- b + sqrt(determinant)) / (2 * a);
       const auto t2 = (- b - sqrt(determinant)) / (2 * a);
-      t = chose_max ? std::max(t1,t2) : std::min(t1, t2);
-      //t = std::fabs(t1) < std::fabs(t2) ? t1 : t2;
-      //t = std::min(t1,t2);
+
+
+      if(H.all_saddle && false) {
+	t = std::max(t1, t2);
+	std::cout << t1<<" "<<t2 << std::endl;
+      }
+      else {
+	if(chose_max) {
+	  t = std::max(t1, t2);
+	}
+	else {
+	  t = std::min(t1, t2);
+	}
+      }
     }
 
     return Q0 + normal * t;
