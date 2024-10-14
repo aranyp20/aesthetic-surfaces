@@ -903,6 +903,32 @@ namespace core {
 	    return logAestheticTargetCurvatureCore(adjusted_effectors, alpha, false);
 	  }
 
+	  if(slice_points1.pos_side_on_end) {
+	    const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos,
+								    slice_points1.end,
+								    slice_points2.pos_side_sp,
+								    slice_points2.end);
+
+	    adjusted_effectors.push_back({bary_coords[0], effectors[1].H});
+	    adjusted_effectors.push_back({bary_coords[1], slice_points2.pos_side_H});
+	    adjusted_effectors.push_back({bary_coords[2], effectors[2].H});
+	  
+	    return logAestheticTargetCurvatureCore(adjusted_effectors, alpha);
+	  }
+
+	  if(slice_points2.pos_side_on_end) {
+	    const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos,
+								    slice_points1.end,
+								    slice_points1.pos_side_sp,
+								    slice_points2.end);
+
+	    adjusted_effectors.push_back({bary_coords[0], effectors[1].H});
+	    adjusted_effectors.push_back({bary_coords[1], slice_points1.pos_side_H});
+	    adjusted_effectors.push_back({bary_coords[2], effectors[2].H});
+	  
+	    return logAestheticTargetCurvatureCore(adjusted_effectors, alpha);
+	  }
+	  
 	  const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos,
 								  slice_points1.end,
 								  slice_points1.pos_side_sp,
@@ -979,6 +1005,33 @@ namespace core {
 	    return logAestheticTargetCurvatureCore(adjusted_effectors, alpha, false);
 	  }
 
+
+	  if(slice_points1.neg_side_on_end) {
+	    const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos,
+								    slice_points1.start,
+								    slice_points2.neg_side_sp,
+								    slice_points2.start);
+	    
+	    adjusted_effectors.push_back({bary_coords[0], effectors[0].H});
+	    adjusted_effectors.push_back({bary_coords[1], slice_points2.neg_side_H});
+	    adjusted_effectors.push_back({bary_coords[2], effectors[1].H});
+
+	    return logAestheticTargetCurvatureCore(adjusted_effectors, alpha);
+	  }
+
+	  if(slice_points2.neg_side_on_end) {
+	    const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos,
+								    slice_points1.start,
+								    slice_points1.neg_side_sp,
+								    slice_points2.start);
+	    
+	    adjusted_effectors.push_back({bary_coords[0], effectors[0].H});
+	    adjusted_effectors.push_back({bary_coords[1], slice_points1.neg_side_H});
+	    adjusted_effectors.push_back({bary_coords[2], effectors[1].H});
+	    
+	    return logAestheticTargetCurvatureCore(adjusted_effectors, alpha);
+	  }
+	  
 	  const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos,
 								  slice_points1.start,
 								  slice_points1.neg_side_sp,
