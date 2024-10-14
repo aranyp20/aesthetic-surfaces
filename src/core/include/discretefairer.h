@@ -12,7 +12,16 @@ namespace core {
 
 class DiscreteFairer
 {
-  std::map<common::MyMesh::VertexHandle, double> vertex_curvature_map;
+public:
+
+  struct ExtendedCurvature
+  {
+    double val = 0;
+    bool negative_positive = false;
+  };
+
+private:
+  std::map<common::MyMesh::VertexHandle, ExtendedCurvature> vertex_curvature_map;
 
   
 public:
@@ -33,6 +42,8 @@ public:
     double main = 0;
     double k_max = 0;
     double k_min = 0;
+
+    double signed_gaussian = 0;
   };
 
   struct EffectorExtra
@@ -43,6 +54,7 @@ public:
 
     Eigen::Vector3d subject_pos; //TODO out of here
 
+    bool negative_positive = false;
     int d_id;
   };
 
@@ -62,6 +74,8 @@ public:
   TargetCurvature calcLogAestheticTargetCurvature_offsetVersion(const std::vector<EffectorExtra>& weighed_effectors) const;
 
 
+    
+  
   
   void triangleExecuteDemo(common::MyMesh& mesh);
   void pentaExecuteDemo(common::MyMesh& mesh);
@@ -87,7 +101,7 @@ public:
   void iterateVerticesSync(common::MyMesh& mesh);
 
 
-  double getCurvature(const CurvatureCalculator& cc) const;
+  ExtendedCurvature getCurvature(const CurvatureCalculator& cc) const;
   
 //TODO replace
 static Eigen::Vector3d Q(const std::array<Eigen::Vector3d, 6>& p,
@@ -104,7 +118,8 @@ static Eigen::Vector3d Q(const std::array<Eigen::Vector3d, 6>& p,
    static Eigen::Vector3d Q_Gaussian(const std::vector<Eigen::Vector3d>& p,
 				     const Eigen::Vector3d& normal, TargetCurvature H, const CurvatureCalculator::FundamentalElements& fe,
 				     const Eigen::Vector3d& Q, const Eigen::Vector3d& Q0,
-				     const Eigen::Matrix<double, 5, Eigen::Dynamic>& M);
+				     const Eigen::Matrix<double, 5, Eigen::Dynamic>& M,
+				     bool negative_positive);
 public:
 
   void execute(common::MyMesh& mesh, size_t iteration_count, std::function<void(int)> cb);

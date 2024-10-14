@@ -75,7 +75,6 @@ namespace core {
     Eigen::Vector2d logAestheticIncrementer(const PlanarLA& la_params, const double s, const double ds)
     {
       const auto theta = calcTheta(la_params, s);
-      std::cout << "ez nulla: "<<theta << std::endl;
       return ds * Eigen::Vector2d(std::cosf(theta), std::sinf(theta));
     }
 
@@ -267,7 +266,7 @@ namespace core {
     const PlanarLA la(alpha, lambda);
     const auto s0 = 1.0;//computeS0(lambda, thetaD);
     const size_t step_count = s0 / ds;
-    std::cout << thetaD<<" "<<s0<<" "<<step_count << std::endl;
+    std::cout << thetaD<<" "<<computeS0(lambda, thetaD)<<" "<<step_count << std::endl;
     Eigen::Vector2d eval_P;
     
     for(size_t i = 0 ; i < step_count; i++){
@@ -293,6 +292,120 @@ namespace core {
       retval.add_face(vhs2);
     }
 
+    return retval;
+  }
+
+
+  common::BaseMesh uvPlaneVhsToMesh(const std::vector<std::vector<common::BaseMesh::VertexHandle>>& vhs)
+  {
+    common::BaseMesh retval;
+
+    return retval;
+  }
+  
+  common::BaseMesh integralPointsToMesh(const std::vector<std::vector<Eigen::Vector3d>>& ip, const size_t width, const size_t height)
+  {
+    common::BaseMesh retval;
+
+    //width<height>
+
+    constexpr size_t resoltuion = 20;
+    const double width_step = (double)width / resoltuion;
+    const double height_step = (double)height / resoltuion; 
+
+    std::vector<std::vector<common::BaseMesh::VertexHandle>>
+      vhs(resoltuion, std::vector<common::BaseMesh::VertexHandle>(resoltuion));
+
+    for(size_t i = 0; i < resoltuion; i++) {
+      for(size_t j = 0; j < resoltuion; j++) {
+	const Eigen::Vector3d& c_ip = ip[(size_t)(i * width_step)][(size_t)(j *height_step)];
+	vhs[i][j] = retval.add_vertex(common::BaseMesh::Point(c_ip[0], c_ip[1], c_ip[2]));
+      }
+    }
+
+    
+
+    return retval;
+  }
+  
+  common::BaseMesh LogAestheticSpline::execute3() const
+  {
+    common::BaseMesh retval;
+    const auto& alpha = common::settings::log_aesthetic_alpha;
+    
+
+
+    const auto complex_to_vec2 = [](const std::complex<double>& c)
+    {
+      return Eigen::Vector2d(c.real(), c.imag());
+    };
+
+    double s_a = 0;
+    double s_b = 0;
+    const double ds = 1e-2;
+
+
+
+    std::complex<double> _P0(-3,3);
+    std::complex<double> _P2(0,0);
+    std::complex<double> _P1(-1,0);
+
+    const auto P0 = complex_to_vec2(_P0);
+    const auto P1 = complex_to_vec2(_P1);
+    const auto P2 = complex_to_vec2(_P2);
+
+    const auto thetaD = bisection_computeThetaD(P0, P1, P2);
+    const auto thetaE = bisection_computeThetaE(P0, P1, P2);
+    const auto thetaF = bisection_computeThetaF(P0, P1, P2);
+
+    
+
+    
+
+      
+
+    const auto lambda = 5.0;// bisection(alpha, 10, thetaD, thetaE, thetaF);
+    const PlanarLA la(alpha, lambda);
+    const auto s0 = 1.0;//computeS0(lambda, thetaD);
+    const size_t step_count = s0 / ds;
+
+    Eigen::Vector2d eval_P_a(0,0);
+    Eigen::Vector2d eval_P_b(0,0);
+
+
+    const Eigen::Vector3d u(1,0,0);
+    const Eigen::Vector3d v(0,1,0);
+    const Eigen::Vector3d uxv(0,0,1);
+
+    const auto to3d = [](const Eigen::Vector3d& i_hat, const Eigen::Vector3d& j_hat, const Eigen::Vector2d& p)
+    {
+      return i_hat * p[0] + j_hat * p[1];
+    };
+
+    std::vector<std::vector<Eigen::Vector3d>> all_points(step_count, std::vector<Eigen::Vector3d>(step_count));
+
+    
+    for(size_t i = 0 ; i < step_count; i++){
+      s_a = i * ds;
+      
+      eval_P_a += logAestheticIncrementer(la, s_a, ds);
+
+      eval_P_b = Eigen::Vector2d(0,0);
+      
+      for(size_t j = 0; j < step_count; j++) {
+	s_b = j * ds;
+
+	eval_P_b += logAestheticIncrementer(la, s_b, ds);
+
+	all_points[i][j] = to3d(u, v, eval_P_a) + to3d(u, uxv, eval_P_b);
+	
+      }
+
+    }
+    
+
+
+    
     return retval;
   }
 }

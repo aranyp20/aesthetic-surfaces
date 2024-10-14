@@ -92,31 +92,6 @@ namespace core {
       return {lambdas[0], lambdas[1], lambdas[2], lambdas[3]};
     }
 
-    std::array<double, 4> barycentricCoordinatesImproved(const Eigen::Vector3d& P, 
-							 const Eigen::Vector3d& P1, 
-							 const Eigen::Vector3d& P2, 
-							 const Eigen::Vector3d& P3, 
-							 const Eigen::Vector3d& P4) {
-      
-      const auto bar_of_vertex = [P](const Eigen::Vector3d& pi, const Eigen::Vector3d& pi0, const Eigen::Vector3d& pi2) {
-
-	return common::math::heron(pi, pi0, pi2) / (common::math::heron(pi, pi0, P) * common::math::heron(pi, pi2, P));
-	
-      };
-
-      auto l1 = bar_of_vertex(P1, P2, P4);
-      auto l2 = bar_of_vertex(P2, P1, P3);
-      auto l3 = bar_of_vertex(P3, P2, P4);
-      auto l4 = bar_of_vertex(P4, P3, P1);
-      const auto normalizer = l1 + l2 + l3 + l4;
-      l1 /= normalizer;
-      l2 /= normalizer;
-      l3 /= normalizer;
-      l4 /= normalizer;
-      
-      return {l1, l2, l3, l4};
-    }
-
     std::array<double, 3> barycentricCoordinatesImproved(const Eigen::Vector3d& P, 
 							 const Eigen::Vector3d& P1, 
 							 const Eigen::Vector3d& P2, 
@@ -143,6 +118,31 @@ namespace core {
       l3 /= normalizer;
       
       return {l1, l2, l3};
+    }
+    
+    std::array<double, 4> barycentricCoordinatesImproved(const Eigen::Vector3d& P, 
+							 const Eigen::Vector3d& P1, 
+							 const Eigen::Vector3d& P2, 
+							 const Eigen::Vector3d& P3, 
+							 const Eigen::Vector3d& P4) {
+      
+      const auto bar_of_vertex = [P](const Eigen::Vector3d& pi, const Eigen::Vector3d& pi0, const Eigen::Vector3d& pi2) {
+
+	return common::math::heron(pi, pi0, pi2) / (common::math::heron(pi, pi0, P) * common::math::heron(pi, pi2, P));
+	
+      };
+
+      auto l1 = bar_of_vertex(P1, P2, P4);
+      auto l2 = bar_of_vertex(P2, P1, P3);
+      auto l3 = bar_of_vertex(P3, P2, P4);
+      auto l4 = bar_of_vertex(P4, P3, P1);
+      const auto normalizer = l1 + l2 + l3 + l4;
+      l1 /= normalizer;
+      l2 /= normalizer;
+      l3 /= normalizer;
+      l4 /= normalizer;
+      
+      return {l1, l2, l3, l4};
     }
 
  
@@ -295,10 +295,17 @@ namespace core {
 
       std::vector<EffectorExtra> effectors_extra; //todo ezt a konverziot elobb megcsinalni
       for(const auto& effector : extended_vertex_static_info.weighed_effectors) {
-	effectors_extra.push_back({effector.second, vertex_curvature_map.at(effector.first), common::converter::meshPointToEigen(mesh.point(effector.first)), common::converter::meshPointToEigen(mesh.point(iteratable)), effector.first.idx()});
+	EffectorExtra ee;
+	ee.weight = effector.second;
+	ee.H =  vertex_curvature_map.at(effector.first).val;
+	ee.pos = common::converter::meshPointToEigen(mesh.point(effector.first));
+	ee.subject_pos = common::converter::meshPointToEigen(mesh.point(iteratable));
+	ee.negative_positive = vertex_curvature_map.at(effector.first).negative_positive;
+	ee.d_id = effector.first.idx();
+	effectors_extra.push_back(ee);
       }
 
-      const auto H = calcTargetCurvature(effectors_extra);
+      auto H = calcTargetCurvature(effectors_extra);
       
       const auto Qm = mesh.point(iteratable);
       const Eigen::Vector3d Q(Qm[0], Qm[1], Qm[2]);
@@ -309,15 +316,23 @@ namespace core {
       
       if(extended_vertex_static_info.weighed_effectors.size() == 2){
 	const auto edge_neighbors = mesh.edge_neighbor_map.at(iteratable);
+	
 	Q0 = common::converter::meshPointToEigen((mesh.point(edge_neighbors[0]) + mesh.point(edge_neighbors[1]))/ 2);
+
       } else {
 	Q0 = common::average(e_neighbors);
       }
 
       
+      
       Eigen::Vector3d new_pos = Q;
       if(common::settings::selected_curvature == common::settings::GAUSSIAN) {
-	new_pos = DiscreteFairer::Q_Gaussian(e_neighbors, normal, H, fe, Q, Q0, cc.getLastM());
+	bool negative_positive = false;
+	if(H.main < 0) {
+	  negative_positive = true;
+	  H.main = -H.main;
+	}
+	new_pos = DiscreteFairer::Q_Gaussian(e_neighbors, normal, H, fe, Q, Q0, cc.getLastM(), negative_positive);
       }
       else if(common::settings::selected_curvature == common::settings::MEAN) {
 	if(iteratable.idx()==50 || true){
@@ -403,19 +418,19 @@ namespace core {
 	switch(v.idx()) {
 	case 0:
 	  {
-	    vertex_curvature_map[v] = 4;
+	    vertex_curvature_map[v] = {4};
 	    mesh.property(demo_color, v) = .5;
 	    break;
 	  }
 	case 4:
 	  {
-	    vertex_curvature_map[v] = -5;
+	    vertex_curvature_map[v] = {-5};
 	    mesh.property(demo_color, v) = -.2;
 	    break;
 	  }
 	case 5:
 	  {
-	    vertex_curvature_map[v] = 7;
+	    vertex_curvature_map[v] = {7};
 	    mesh.property(demo_color, v) = .3;
 	    break;
 	  }
@@ -460,31 +475,31 @@ namespace core {
 	switch(v.idx()) {
 	case 0:
 	  {
-	    vertex_curvature_map[v] = 0.5;
+	    vertex_curvature_map[v] = {0.5};
 	    mesh.property(demo_color, v) = 0.5;
 	    break;
 	  }
 	case 1:
 	  {
-	    vertex_curvature_map[v] = 1.0;
+	    vertex_curvature_map[v] = {1.0};
 	    mesh.property(demo_color, v) = 1.0;
 	    break;
 	  }
 	case 2:
 	  {
-	    vertex_curvature_map[v] = 2.0;
+	    vertex_curvature_map[v] = {2.0};
 	    mesh.property(demo_color, v) = 2.0;
 	    break;
 	  }
 	case 3:
 	  {
-	    vertex_curvature_map[v] = 4.0;
+	    vertex_curvature_map[v] = {4.0};
 	    mesh.property(demo_color, v) = 4.0;
 	    break;
 	  }
 	case 4:
 	  {
-	    vertex_curvature_map[v] = 5.0;
+	    vertex_curvature_map[v] = {5.0};
 	    mesh.property(demo_color, v) = 5.0;
 	    break;
 	  }
@@ -507,19 +522,25 @@ namespace core {
     }
 
 
-  double calcSignedGaussianCurvature(const CurvatureCalculator& cc)
+  
+  DiscreteFairer::ExtendedCurvature calcSignedGaussianCurvature(const CurvatureCalculator& cc)
   {
 
     
     const auto principle_curvatures = cc.getPrincipleCurvatures();
     //const auto chosen_curvature (std::fabs(principle_curvatures.min_val) < std::fabs(principle_curvatures.max_val) ? principle_curvatures.min_val : principle_curvatures.max_val);
     //return chosen_curvature < 0 ? -std::fabs(cc.getGaussianCurvature()) : std::fabs(cc.getGaussianCurvature());
-    if(cc.getGaussianCurvature() > 0) {
-      return principle_curvatures.min_val < 0 ? -cc.getGaussianCurvature() : cc.getGaussianCurvature();
+
+    DiscreteFairer::ExtendedCurvature retval;
+
+    retval.val = cc.getGaussianCurvature();
+    
+    if(cc.getGaussianCurvature() > 0 && principle_curvatures.min_val < 0) {
+      retval.negative_positive = true;
     }
 
     
-    return 0;
+    return retval;
   }
 
   void DiscreteFairer::triangleGaussExecuteDemo(common::MyMesh& mesh)
@@ -541,9 +562,9 @@ namespace core {
     //}
     
     auto vh1 = mesh.vertex_handle(0);
-    vertex_curvature_map.insert({vh1, 3});
+    vertex_curvature_map.insert({vh1, {3}});
     auto vh2 = mesh.vertex_handle(2);
-    vertex_curvature_map.insert({vh2, 5});
+    vertex_curvature_map.insert({vh2, {5}});
     
 
     std::vector<int> av{72, 18, 70, 7, 87, 21, 89};
@@ -592,10 +613,36 @@ namespace core {
 
   DiscreteFairer::TargetCurvature DiscreteFairer::logAestheticTargetCurvatureCore(const std::vector<EffectorExtra>& effectors, const double alpha, const bool enable_flipping) const
   {
+    
+    
     TargetCurvature retval;
     const double sign = effectors[0].H < 0 && enable_flipping ? -1 : 1;
     for(const auto& effector : effectors) {
       retval.main += std::powf(effector.H * sign, -alpha) * effector.weight;
+      if(std::isnan(retval.main)) {
+	//std::cout << effectors.size()<<" "<<effector.weight<<" "<<effectors.size() << std::endl;
+      }
+      /*
+      double base = effector.H;
+      double exponent = -common::settings::log_aesthetic_alpha;
+      
+      // Take the absolute value of the base
+      double abs_base = std::abs(base);
+    
+      // Compute the root of the absolute value
+      double result = std::pow(abs_base, exponent);
+
+      if (base < 0) {
+        result = -result;
+      }
+
+      
+      retval.main += result * effector.weight;
+      if(std::isnan(retval.main)){
+	std::cout << std::powf(effector.H * sign, -alpha)<<" "<<effector.H<<" "<<-alpha << std::endl;
+      }
+      */
+
     }
       
     retval.main = std::powf(retval.main, -1.0 / alpha) * sign;
@@ -628,15 +675,10 @@ namespace core {
     
     Eigen::Vector3d end;
   };
-  
-  DiscreteFairer::TargetCurvature DiscreteFairer::logAestheticTargetCurvatureMixed(const std::vector<EffectorExtra>& effectors) const
-  {
-    const auto zero_point = [](const EffectorExtra& e_neg, const EffectorExtra& e_pos)
-    {
-      return (e_pos.H * e_neg.pos + std::fabs(e_neg.H) * e_pos.pos) / (e_pos.H + std::fabs(e_neg.H));
-    };
 
-    const auto trislice_points = [](const EffectorExtra& e_neg, const EffectorExtra& e_pos)
+
+  namespace {
+    SlicePoints trislice_points(const DiscreteFairer::EffectorExtra& e_neg, const DiscreteFairer::EffectorExtra& e_pos)
     {
       constexpr double middle_ratio = 0.2;
       
@@ -655,10 +697,9 @@ namespace core {
 
       const auto neg_side_t = std::max(zero_t - middle_ratio / 2.0, 0.0);
       const auto pos_side_t = std::min(zero_t + middle_ratio / 2.0, 1.0);
-
-      const auto H_interval = e_pos.H - e_neg.H;
-      retval.neg_side_H = e_neg.H + neg_side_t * H_interval;
-      retval.pos_side_H = e_neg.H + pos_side_t * H_interval;
+      
+      retval.neg_side_H = e_neg.H + neg_side_t * total_value_interval;
+      retval.pos_side_H = e_neg.H + pos_side_t * total_value_interval;
       
       if (neg_side_t > 0) { 
 	const Eigen::Vector3d neg_side_point = e_neg.pos + neg_side_t * dir_vec;
@@ -685,13 +726,24 @@ namespace core {
       
       return retval;
     };
+  }
+
+  
+  DiscreteFairer::TargetCurvature DiscreteFairer::logAestheticTargetCurvatureMixed(const std::vector<EffectorExtra>& effectors) const
+  {
+    const auto zero_point = [](const EffectorExtra& e_neg, const EffectorExtra& e_pos)
+    {
+      return (e_pos.H * e_neg.pos + std::fabs(e_neg.H) * e_pos.pos) / (e_pos.H + std::fabs(e_neg.H));
+    };
+
+
 
 
     std::vector<EffectorExtra> adjusted_effectors;
     double alpha = common::settings::log_aesthetic_alpha;
     
     if(effectors.size() == 2) {
-      if (common::settings::log_aesthetic_alpha < 0) {
+      if (common::settings::log_aesthetic_alpha < 0 && false) {
 	const auto zp = zero_point(effectors[0], effectors[1]);
 
 	const auto dist_to_e0 = (effectors[0].pos - effectors[0].subject_pos).norm();
@@ -736,7 +788,7 @@ namespace core {
     }
     else {
       const Eigen::Vector3d normal = (effectors[0].pos - effectors[1].pos).cross(effectors[2].pos - effectors[1].pos);
-      if (common::settings::log_aesthetic_alpha < 0) { //todo
+      if (common::settings::log_aesthetic_alpha < 0 && false) { //todo
       
 	if (effectors[1].H > 0) {
 	  /* N P P */
@@ -806,12 +858,6 @@ namespace core {
 								      slice_points1.neg_side_sp,
 								      slice_points2.neg_side_sp);
 
-	      if (std::isnan(bary_coords[0])) {
-		std::cout << "ha: "<<sep_line_1.norm()<<" "<<effectors[0].pos<<";"<<
-		  slice_points1.neg_side_sp<<";"<<
-		  slice_points2.neg_side_sp << std::endl;
-		std::cout << slice_points1.neg_side_on_end<<" "<<slice_points2.neg_side_on_end << std::endl;
-	      }
 	      adjusted_effectors.push_back({bary_coords[0], effectors[0].H});
 	      adjusted_effectors.push_back({bary_coords[1], slice_points1.neg_side_H});
 	      adjusted_effectors.push_back({bary_coords[2], slice_points2.neg_side_H});
@@ -826,7 +872,7 @@ namespace core {
 	  const bool examined_side = towards_one_side.dot(effectors[0].subject_pos - slice_points2.pos_side_sp) > 0;
 	  const bool on_middle_side = middle_side == examined_side;
 
-	  if (on_middle_side) {
+	  if (on_middle_side && (!slice_points1.neg_side_on_end && !slice_points2.neg_side_on_end)) {
 	    const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos,
 								    slice_points1.pos_side_sp,
 								    slice_points2.pos_side_sp,
@@ -838,6 +884,20 @@ namespace core {
 	    adjusted_effectors.push_back({bary_coords[1], slice_points2.pos_side_H});
 	    adjusted_effectors.push_back({bary_coords[2], slice_points2.neg_side_H});
 	    adjusted_effectors.push_back({bary_coords[3], slice_points1.neg_side_H});
+
+	    
+	    return logAestheticTargetCurvatureCore(adjusted_effectors, alpha, false);
+	  }
+	  else if(on_middle_side) {
+	    const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos,
+								    slice_points1.pos_side_sp,
+								    slice_points2.pos_side_sp,
+								    slice_points1.neg_side_sp);
+	    alpha = -1.0;
+
+	    adjusted_effectors.push_back({bary_coords[0], slice_points1.pos_side_H});
+	    adjusted_effectors.push_back({bary_coords[1], slice_points2.pos_side_H});
+	    adjusted_effectors.push_back({bary_coords[2], slice_points1.neg_side_H});
 	    
 	    return logAestheticTargetCurvatureCore(adjusted_effectors, alpha, false);
 	  }
@@ -888,7 +948,7 @@ namespace core {
 	  const bool examined_side = towards_one_side.dot(effectors[0].subject_pos - slice_points2.neg_side_sp) > 0;
 	  const bool on_middle_side = middle_side == examined_side;
 
-	  if (on_middle_side) {
+	  if (on_middle_side && !slice_points1.pos_side_on_end && !slice_points2.pos_side_on_end) {
 	    const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos,
 								    slice_points1.pos_side_sp,
 								    slice_points2.pos_side_sp,
@@ -896,10 +956,24 @@ namespace core {
 								    slice_points1.neg_side_sp);
 	    alpha = -1.0;
 
+
 	    adjusted_effectors.push_back({bary_coords[0], slice_points1.pos_side_H});
 	    adjusted_effectors.push_back({bary_coords[1], slice_points2.pos_side_H});
 	    adjusted_effectors.push_back({bary_coords[2], slice_points2.neg_side_H});
 	    adjusted_effectors.push_back({bary_coords[3], slice_points1.neg_side_H});
+	    
+	    return logAestheticTargetCurvatureCore(adjusted_effectors, alpha, false);
+	  }
+	  else if (on_middle_side) {
+	    const auto bary_coords = barycentricCoordinatesImproved(effectors[0].subject_pos,
+								    slice_points2.pos_side_sp,
+								    slice_points2.neg_side_sp,
+								    slice_points1.neg_side_sp);
+	    alpha = -1.0;
+
+	    adjusted_effectors.push_back({bary_coords[0], slice_points2.pos_side_H});
+	    adjusted_effectors.push_back({bary_coords[1], slice_points2.neg_side_H});
+	    adjusted_effectors.push_back({bary_coords[2], slice_points1.neg_side_H});
 	    
 	    return logAestheticTargetCurvatureCore(adjusted_effectors, alpha, false);
 	  }
@@ -930,7 +1004,8 @@ namespace core {
 
     
     if (w_effectors.size() > 3) {
-      throw std::runtime_error("Log-aesthetic df only works for trimeshes.");
+      return logAestheticTargetCurvatureCore(w_effectors, common::settings::log_aesthetic_alpha, false);
+      //throw std::runtime_error("Log-aesthetic df only works for trimeshes.");
     }
     
     std::sort(w_effectors.begin(), w_effectors.end(), [this](const EffectorExtra& v1, const EffectorExtra& v2){
@@ -982,6 +1057,13 @@ namespace core {
     case common::settings::Algorithm::BASIC: {
 	for(const auto& weighed_effector : weighed_effectors) {
 	  retval.main += weighed_effector.H * weighed_effector.weight;
+
+
+	  if(weighed_effector.negative_positive) {
+	    //retval.signed_gaussian += 
+	  }
+	  
+	  //retval.signed_gaussian += 
 	}
 	return retval;
       }
@@ -1107,7 +1189,7 @@ namespace core {
       2 / std::sqrt(3) * (p[1] - p[2] + p[4] - p[5]).dot(normal) +
 		    fe.G * (p[0]+p[3]).dot(normal)) / (2 * (fe.E + fe.G))
       -p_k.dot(normal);
-    
+
     return p_k + normal * t;
   }
 
@@ -1149,13 +1231,10 @@ namespace core {
 
   Eigen::Vector3d DiscreteFairer::Q_Gaussian(const std::vector<Eigen::Vector3d>& p,const Eigen::Vector3d& normal, TargetCurvature H,  const CurvatureCalculator::FundamentalElements& fe,
 					     const Eigen::Vector3d& Q, const Eigen::Vector3d& Q0,
-					     const Eigen::Matrix<double, 5 , Eigen::Dynamic>& M)
+					     const Eigen::Matrix<double, 5 , Eigen::Dynamic>& M,
+					     const bool negative_positive)
   {
-    bool chose_max = true;
-    if (H.main < 0) {
-      chose_max = !chose_max;
-      H.main *= -1;
-    }
+    bool chose_max = !negative_positive;
 
 
     //const auto p_k = common::average(p);
@@ -1197,7 +1276,7 @@ namespace core {
     
     const auto determinant = b * b - 4 * a * c;
     if (determinant < -1e-5) {
-      std::cout << H.main << std::endl;
+      //std::cout << H.main << std::endl;
       std::cout << "Gaussian Q det error. "<< determinant << std::endl;
       return Q0;
     }
@@ -1215,11 +1294,11 @@ namespace core {
     return Q0 + normal * t;
   }
 
-  double DiscreteFairer::getCurvature(const CurvatureCalculator& cc) const
+  DiscreteFairer::ExtendedCurvature DiscreteFairer::getCurvature(const CurvatureCalculator& cc) const
   {
     switch(common::settings::selected_curvature) {
     case common::settings::MEAN:
-      return cc.getMeanCurvature();
+      return {cc.getMeanCurvature()};
     case common::settings::GAUSSIAN:
       return calcSignedGaussianCurvature(cc);
     }
